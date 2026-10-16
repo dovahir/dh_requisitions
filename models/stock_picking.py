@@ -83,6 +83,11 @@ class StockPicking(models.Model):
             'target': 'current',
         }
 
+    def action_print_transfer_report(self):
+        """Genera e imprime el reporte de traspaso / remisión desde el albarán."""
+        self.ensure_one()
+        return self.env.ref('dh_requisitions.action_report_supply_transfer').report_action(self)
+
     def _prepare_backorder_values(self, picking):
         """Conserva la relación con la Solicitud de Suministro al generarse backorders."""
         vals = super()._prepare_backorder_values(picking)

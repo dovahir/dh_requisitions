@@ -122,6 +122,79 @@ class RequisitionSupplyRequestLine(models.Model):
         compute='_compute_dotation_display'
     )
 
+    # --- Integración con supply.chain.allocation ---
+    allocation_ids = fields.One2many(
+        'supply.chain.allocation',
+        'supply_request_line_id',
+        string='Asignaciones de Cadena de Suministro'
+    )
+    allocation_id = fields.Many2one(
+        'supply.chain.allocation',
+        string='Asignación Principal',
+        compute='_compute_allocation_id',
+        store=True,
+        readonly=True,
+        index=True
+    )
+    qty_in_transit = fields.Float(
+        string='En Tránsito',
+        compute='_compute_quantities',
+        store=True,
+        digits='Product Unit of Measure',
+        help='Cantidad activa despachada hacia tránsito pendiente de recibir en obra.'
+    )
+    qty_done = fields.Float(
+        string='Suministrado / Recibido',
+        compute='_compute_quantities',
+        store=True,
+        digits='Product Unit of Measure',
+        help='Cantidad efectivamente recibida en el almacén de destino.'
+    )
+    qty_cancelled = fields.Float(
+        string='Cancelado',
+        compute='_compute_quantities',
+        store=True,
+        digits='Product Unit of Measure'
+    )
+    state = fields.Selection([
+        ('draft', 'Borrador'),
+        ('in_progress', 'En Tránsito / Proceso'),
+        ('done', 'Suministrado'),
+        ('cancel', 'Cancelado'),
+    ], string='Estado de Partida', compute='_compute_state', store=True, default='draft', index=True)
+
+    @api.depends('allocation_ids')
+    def _compute_allocation_id(self):
+        for line in self:
+            line.allocation_id = line.allocation_ids[:1]
+
+    @api.depends(
+        'allocation_ids.requested_qty',
+        'allocation_ids.delivered_qty',
+        'allocation_ids.open_qty',
+        'allocation_ids.cancelled_qty',
+        'allocation_ids.state',
+        'request_id.state'
+    )
+    def _compute_quantities(self):
+        for line in self:
+            active_allocs = line.allocation_ids.filtered(lambda a: a.state != 'cancel')
+            line.qty_done = sum(active_allocs.mapped('delivered_qty'))
+            line.qty_in_transit = sum(active_allocs.filtered(lambda a: a.state in ('draft', 'in_progress')).mapped('open_qty'))
+            line.qty_cancelled = sum(line.allocation_ids.filtered(lambda a: a.state == 'cancel').mapped('cancelled_qty'))
+
+    @api.depends('request_id.state', 'allocation_ids.state', 'qty_done', 'product_qty')
+    def _compute_state(self):
+        for line in self:
+            if line.request_id and line.request_id.state == 'cancel':
+                line.state = 'cancel'
+            elif line.request_id and line.request_id.state in ('done_exact', 'done_partial', 'done_adjusted'):
+                line.state = 'done' if (line.product_qty > 0 and line.qty_done >= line.product_qty) else 'in_progress'
+            elif line.request_id and line.request_id.state in ('in_transit', 'delivery_created'):
+                line.state = 'in_progress'
+            else:
+                line.state = 'draft'
+
     # -------------------------------------------------------------------------
     # CONSTRAINS
     # -------------------------------------------------------------------------
@@ -131,7 +204,7 @@ class RequisitionSupplyRequestLine(models.Model):
             if line.product_qty <= 0:
                 raise ValidationError(_("La cantidad solicitada en la partida de suministro debe ser mayor a cero."))
 
-    @api.constrains('lot_ids', 'product_qty', 'has_tracking')
+    @api.constrains('lot_ids', 'product_qty')
     def _check_lots_quantity(self):
         for line in self:
             if line.has_tracking == 'serial' and line.lot_ids:
@@ -241,6 +314,9 @@ class RequisitionSupplyRequestLine(models.Model):
             existing = self.search(domain, limit=1)
             if existing:
                 existing.product_qty += qty
+                for alloc in existing.allocation_ids.filtered(lambda a: a.state != 'cancel'):
+                    alloc.requested_qty = existing.product_qty
+                    alloc._sync_origin_document_status()
                 if lot_ids:
                     # Extraer IDs de lotes
                     new_lot_ids = []
@@ -263,8 +339,25 @@ class RequisitionSupplyRequestLine(models.Model):
 
         created_records = super().create(records_to_create)
 
-        # Notificación en Chatter padre con Markup seguro
+        # Sincronizar asignaciones automáticas para líneas con requisición
         for rec in created_records:
+            if rec.requisition_line_id and not rec.allocation_ids:
+                supply_type = rec.requisition_line_id.supply_type or (
+                    'resg' if rec.requisition_line_id.line_type in ('tool', 'equipment') else 'consumption'
+                )
+                company = rec.company_id or self.env.company
+                self.env['supply.chain.allocation'].create({
+                    'company_id': company.id,
+                    'product_id': rec.product_id.id,
+                    'product_uom_id': rec.product_uom_id.id,
+                    'requested_qty': rec.product_qty,
+                    'delivered_qty': 0.0,
+                    'supply_type': supply_type,
+                    'supply_request_line_id': rec.id,
+                    'requisition_line_id': rec.requisition_line_id.id,
+                    'state': 'draft',
+                })
+
             if rec.request_id:
                 body = Markup(
                     "<div class='d-flex align-items-center mb-1'>"
@@ -294,6 +387,12 @@ class RequisitionSupplyRequestLine(models.Model):
                 }
 
         res = super().write(vals)
+
+        if 'product_qty' in vals:
+            for rec in self:
+                for alloc in rec.allocation_ids.filtered(lambda a: a.state != 'cancel'):
+                    alloc.requested_qty = vals['product_qty']
+                    alloc._sync_origin_document_status()
 
         if has_tracked:
             for rec in self:
@@ -329,6 +428,14 @@ class RequisitionSupplyRequestLine(models.Model):
                 ) % rec.request_id.name)
 
     def unlink(self):
+        allocations_to_clean = self.mapped('allocation_ids')
+        for alloc in allocations_to_clean:
+            if alloc.state in ('in_progress', 'done'):
+                alloc.action_cancel(action='reintegrate')
+        allocations_to_delete = allocations_to_clean.filtered(lambda a: a.state in ('draft', 'cancel'))
+        if allocations_to_delete:
+            allocations_to_delete.unlink()
+
         messages = []
         for rec in self:
             if rec.request_id:

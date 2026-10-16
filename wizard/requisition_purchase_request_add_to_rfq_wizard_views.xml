@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_requisition_purchase_request_add_to_rfq" model="ir.actions.act_window">
+        <field name="name">Añadir a RFQ / Cotización</field>
+        <field name="res_model">requisition.purchase.request.add.to.rfq.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="model_requisition_purchase_request_line"/>
+        <field name="binding_type">action</field>
+    </record>
+
+    <record id="view_requisition_purchase_request_add_to_rfq_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.purchase.request.add.to.rfq.wizard.form</field>
+        <field name="model">requisition.purchase.request.add.to.rfq.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Agregar Solicitudes a Cotización (RFQ)">
+                <group>
+                    <field name="supplier_id"
+                           invisible="purchase_order_id"
+                           required="not purchase_order_id"
+                           options="{'no_create': True}"
+                           placeholder="Seleccione el proveedor para la nueva cotización..."/>
+                    <field name="purchase_order_id"
+                           options="{'no_create': True}"
+                           placeholder="Deje vacío para crear una RFQ nueva o seleccione una existente..."/>
+                </group>
+
+                <group string="Parámetros de la Nueva Cotización" invisible="purchase_order_id">
+                    <field name="purchaser_id" options="{'no_create': True}"/>
+                    <field name="picking_type_id" options="{'no_create': True}"/>
+                    <field name="company_id" options="{'no_create': True}" groups="base.group_multi_company"/>
+                </group>
+
+                <div class="alert alert-info d-flex align-items-center mb-2" role="alert" invisible="purchase_order_id">
+                    <i class="fa fa-info-circle me-2"/> Se creará una nueva solicitud de cotización (RFQ) con el proveedor y parámetros especificados.
+                </div>
+                <div class="alert alert-success d-flex align-items-center mb-2" role="alert" invisible="not purchase_order_id">
+                    <i class="fa fa-check-circle me-2"/> Las partidas se anexarán a la cotización en borrador seleccionada conservando líneas separadas por requisición.
+                </div>
+
+                <separator string="Partidas Seleccionadas"/>
+                <field name="line_ids" nolabel="1">
+                    <list editable="bottom" create="false" delete="false">
+                        <field name="request_line_id" column_invisible="1"/>
+                        <field name="selected" widget="boolean_toggle" string="Incluir"/>
+                        <field name="product_id" readonly="1" options="{'no_create': True}"/>
+                        <field name="requisition_id" readonly="1" optional="show"/>
+                        <field name="notes" readonly="1" optional="show" string="Notas / Ref"/>
+                        <field name="pending_qty_to_buy" readonly="1" string="Saldo Pendiente" decoration-bf="1"/>
+                        <field name="product_qty" string="Cant. a Cotizar" decoration-bf="1"/>
+                        <field name="uom_id" readonly="1" string="UdM"/>
+                    </list>
+                </field>
+
+                <footer>
+                    <button name="add_to_rfq"
+                            string="Generar / Añadir a Cotización"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancelar"
+                            class="btn-secondary"
+                            special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

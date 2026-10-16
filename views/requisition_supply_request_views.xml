@@ -75,6 +75,13 @@
                             class="btn-outline-danger"
                             invisible="state in ('done_exact', 'done_partial', 'done_adjusted', 'cancel', 'delivery_returned')"/>
 
+                    <button name="action_print_transfer_report"
+                            string="Imprimir Traspaso"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-print"
+                            invisible="not id"/>
+
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,delivery_created,in_transit,done_exact"/>
                 </header>
@@ -168,7 +175,7 @@
                             <field name="request_uid" widget="many2one_avatar_user"/>
                             <field name="date_request"/>
                             <field name="scheduled_date" readonly="state != 'draft'"/>
-                            <field name="requisition_ids" widget="many2many_tags" options="{'no_create': True}" readonly="1"/>
+                            <field name="requisition_ids" invisible="1"/>
                         </group>
                         <group string="Origen (Base)">
                             <field name="picking_type_id" options="{'no_create': True}" readonly="state != 'draft'"/>
@@ -202,6 +209,8 @@
                                     <field name="product_id" options="{'no_create': True}" readonly="requisition_line_id"/>
                                     <field name="request_qty" optional="show" readonly="1"/>
                                     <field name="product_qty" decoration-bf="1"/>
+                                    <field name="qty_in_transit" optional="show" readonly="1" decoration-info="qty_in_transit &gt; 0"/>
+                                    <field name="qty_done" optional="show" readonly="1" decoration-success="qty_done &gt; 0"/>
                                     <field name="product_uom_id" string="UdM" options="{'no_create': True}" readonly="1" force_save="1"/>
                                     <field name="has_tracking" column_invisible="True"/>
                                     <field name="available_lot_ids" column_invisible="True"/>

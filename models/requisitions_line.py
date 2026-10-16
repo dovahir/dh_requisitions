@@ -217,6 +217,7 @@ class RequisitionsLine(models.Model):
         'allocation_ids.state',
         'allocation_ids.cancel_action',
         'allocation_ids.stock_move_id',
+        'allocation_ids.supply_request_line_id',
         'allocation_ids.purchase_line_id',
         'allocation_ids.purchase_request_line_id',
         'product_qty',
@@ -224,7 +225,9 @@ class RequisitionsLine(models.Model):
     )
     def _compute_quantities(self):
         for line in self:
-            stock_allocs = line.allocation_ids.filtered(lambda a: bool(a.stock_move_id))
+            stock_allocs = line.allocation_ids.filtered(
+                lambda a: bool(a.stock_move_id) or bool(a.supply_request_line_id)
+            )
             purchase_allocs = line.allocation_ids.filtered(
                 lambda a: bool(a.purchase_line_id) or bool(a.purchase_request_line_id)
             )

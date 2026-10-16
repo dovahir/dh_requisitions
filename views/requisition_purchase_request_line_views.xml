@@ -1,29 +1,65 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
-    <!-- Vista List (Árbol) -->
+    <!-- Vista List (Odoo 19) -->
     <record id="view_requisition_purchase_request_line_list" model="ir.ui.view">
         <field name="name">requisition.purchase.request.line.list</field>
         <field name="model">requisition.purchase.request.line</field>
         <field name="arch" type="xml">
-            <list string="Líneas de Solicitud de Compra"
-                  decoration-info="state == 'draft'"
-                  decoration-warning="state == 'in_progress'"
+            <list string="Solicitudes de Compra"
+                  decoration-muted="state == 'pending'"
+                  decoration-info="state == 'in_progress'"
+                  decoration-warning="state == 'to_receive'"
+                  decoration-primary="state == 'partially_purchased'"
                   decoration-success="state == 'purchased'"
-                  decoration-muted="state == 'cancel'">
-                <field name="name"/>
-                <field name="date_required"/>
-                <field name="requisition_id"/>
-                <field name="product_id"/>
-                <field name="product_qty"/>
-                <field name="product_uom_id"/>
-                <field name="warehouse_id"/>
-                <field name="purchase_line_id" optional="show"/>
+                  decoration-danger="state == 'cancel'">
+                <header>
+                    <button name="action_open_add_to_rfq_wizard"
+                            string="Añadir a RFQ"
+                            type="object"
+                            icon="fa-shopping-cart"
+                            class="btn-primary"/>
+                    <button name="action_cancel_multiple"
+                            string="Cancelar seleccionadas"
+                            type="object"
+                            icon="fa-times"
+                            class="btn-danger"
+                            confirm="¿Está seguro de cancelar las solicitudes de compra seleccionadas?"/>
+                </header>
+                <field name="priority" widget="priority" optional="show" nolabel="1"/>
+                <field name="product_id" options="{'no_create': True}"/>
+                <field name="notes" optional="show" string="Notas / Ref"/>
+                <field name="product_qty" string="Cant. Solicitada"/>
+                <field name="pending_qty_to_buy" string="Pendiente Comprar" decoration-bf="1"/>
+                <field name="qty_in_progress" string="En Cotización" optional="show"/>
+                <field name="qty_to_receive" string="Por Recepcionar" optional="show"/>
+                <field name="qty_done" string="Recibido" optional="show"/>
+                <field name="product_uom_id" string="UdM" options="{'no_create': True}"/>
+                <field name="requester_name" string="Solicitante" optional="show"/>
+                <field name="requisition_id" string="Requisición" optional="show"/>
+                <field name="warehouse_id" string="Almacén Destino" optional="show"/>
                 <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="purchase_lines" column_invisible="1"/>
+                <button name="action_open_purchase_orders"
+                        string="Ver RFQs"
+                        type="object"
+                        icon="fa-shopping-cart"
+                        class="btn-primary"
+                        invisible="not purchase_lines"
+                        title="Ver Cotizaciones / Órdenes asociadas"/>
                 <field name="state" widget="badge"
-                       decoration-info="state == 'draft'"
-                       decoration-warning="state == 'in_progress'"
+                       decoration-muted="state == 'pending'"
+                       decoration-info="state == 'in_progress'"
+                       decoration-warning="state == 'to_receive'"
+                       decoration-primary="state == 'partially_purchased'"
                        decoration-success="state == 'purchased'"
-                       decoration-muted="state == 'cancel'"/>
+                       decoration-danger="state == 'cancel'"/>
+                <button name="action_cancel_line"
+                        type="object"
+                        icon="fa-times-circle"
+                        class="text-danger"
+                        title="Cancelar partida"
+                        invisible="state in ('cancel', 'purchased')"
+                        confirm="¿Está seguro de cancelar esta solicitud de compra?"/>
             </list>
         </field>
     </record>
@@ -33,37 +69,98 @@
         <field name="name">requisition.purchase.request.line.form</field>
         <field name="model">requisition.purchase.request.line</field>
         <field name="arch" type="xml">
-            <form string="Línea de Solicitud de Compra">
+            <form string="Solicitud de Compra">
                 <header>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,in_progress,purchased"/>
+                    <button name="action_open_add_to_rfq_wizard"
+                            string="Añadir a RFQ"
+                            type="object"
+                            class="btn-primary"
+                            icon="fa-shopping-cart"
+                            invisible="state in ('cancel', 'purchased')"/>
+                    <button name="action_cancel_line"
+                            string="Cancelar Partida"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state in ('cancel', 'purchased')"
+                            confirm="¿Está seguro de cancelar esta solicitud de compra?"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="pending,in_progress,to_receive,partially_purchased,purchased"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_purchase_orders"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-text-o"
+                                invisible="purchase_order_count == 0">
+                            <field name="purchase_order_count" widget="statinfo" string="Órdenes / RFQs"/>
+                        </button>
+                        <button name="action_open_pickings"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-truck"
+                                invisible="picking_count == 0">
+                            <field name="picking_count" widget="statinfo" string="Recepciones"/>
+                        </button>
+                    </div>
                     <div class="oe_title">
+                        <label for="name" string="Referencia"/>
                         <h1>
-                            <field name="name"/>
+                            <field name="name" placeholder="Referencia de la Solicitud..."/>
                         </h1>
                     </div>
                     <group>
                         <group string="Detalle de Producto y Requisición">
-                            <field name="requisition_id"/>
-                            <field name="requisition_line_id" options="{'no_open': True}"/>
-                            <field name="product_id"/>
+                            <field name="requisition_id" options="{'no_create': True}"/>
+                            <field name="requisition_line_id" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="product_id" options="{'no_create': True}"/>
+                            <field name="priority" widget="priority"/>
                             <field name="product_qty"/>
-                            <field name="product_uom_id"/>
+                            <field name="product_uom_id" options="{'no_create': True}"/>
                         </group>
                         <group string="Logística y Destino">
+                            <field name="requester_name"/>
                             <field name="date_required"/>
-                            <field name="warehouse_id"/>
+                            <field name="warehouse_id" options="{'no_create': True}"/>
                             <field name="company_id" groups="base.group_multi_company"/>
-                            <field name="purchase_line_id" options="{'no_create': True}"/>
-                            <field name="allocation_id" options="{'no_create': True}" groups="base.group_no_one"/>
+                            <field name="active" invisible="1"/>
                         </group>
                     </group>
-                    <group string="Especificaciones / Notas">
-                        <field name="notes" nolabel="1" placeholder="Detalles técnicos o instrucciones para el comprador..."/>
+                    <group string="Balance y Estado de Suministro">
+                        <group>
+                            <field name="pending_qty_to_buy"/>
+                            <field name="qty_in_progress"/>
+                        </group>
+                        <group>
+                            <field name="qty_to_receive"/>
+                            <field name="qty_done"/>
+                            <field name="qty_cancelled" invisible="qty_cancelled == 0"/>
+                        </group>
                     </group>
+                    <notebook>
+                        <page string="Especificaciones y Notas" name="notes_page">
+                            <field name="notes" nolabel="1" placeholder="Detalles técnicos, especificaciones de marca o notas para el comprador..."/>
+                        </page>
+                        <page string="Asignaciones de Cadena de Suministro" name="allocations_page">
+                            <field name="allocation_ids" readonly="1">
+                                <list string="Asignaciones" decoration-muted="state == 'cancel'">
+                                    <field name="purchase_line_id" string="Línea de Compra"/>
+                                    <field name="purchase_stock_move_id" string="Recepción de Compra" optional="show"/>
+                                    <field name="stock_move_id" string="Entrega a Obra" optional="show"/>
+                                    <field name="requested_qty" string="Asignado"/>
+                                    <field name="delivered_qty" string="Recibido / Entregado"/>
+                                    <field name="open_qty" string="En Tránsito"/>
+                                    <field name="product_uom_id" string="UdM"/>
+                                    <field name="state" widget="badge"
+                                           decoration-info="state == 'in_progress'"
+                                           decoration-success="state == 'done'"
+                                           decoration-muted="state == 'cancel'"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
-                <!-- Chatter de Odoo 19 -->
+                <!-- Chatter Odoo 19 -->
                 <chatter/>
             </form>
         </field>
@@ -75,19 +172,26 @@
         <field name="model">requisition.purchase.request.line</field>
         <field name="arch" type="xml">
             <search>
-                <field name="name"/>
-                <field name="product_id"/>
-                <field name="requisition_id"/>
-                <field name="warehouse_id"/>
-                <filter string="Pendientes" name="filter_draft" domain="[('state', '=', 'draft')]"/>
-                <filter string="En Compra" name="filter_in_progress" domain="[('state', '=', 'in_progress')]"/>
+                <field name="name" string="Referencia / Nombre"/>
+                <field name="product_id" string="Producto"/>
+                <field name="requisition_id" string="Requisición"/>
+                <field name="warehouse_id" string="Almacén Destino"/>
+                <field name="requester_name" string="Solicitante"/>
+                <separator/>
+                <filter string="Pendientes de Comprar" name="filter_pending_buy" domain="[('pending_qty_to_buy', '>', 0), ('state', 'not in', ['cancel', 'purchased'])]"/>
+                <filter string="En Cotización" name="filter_in_progress" domain="[('state', '=', 'in_progress')]"/>
+                <filter string="Por Recepcionar" name="filter_to_receive" domain="[('state', '=', 'to_receive')]"/>
                 <filter string="Compradas" name="filter_purchased" domain="[('state', '=', 'purchased')]"/>
+                <separator/>
+                <filter string="Urgentes" name="filter_urgent" domain="[('priority', '=', 'urgent')]"/>
+                <filter string="Archivadas" name="filter_archived" domain="[('active', '=', False)]"/>
                 <separator/>
                 <group>
                     <filter string="Producto" name="group_product" context="{'group_by': 'product_id'}"/>
                     <filter string="Requisición" name="group_req" context="{'group_by': 'requisition_id'}"/>
                     <filter string="Almacén Destino" name="group_wh" context="{'group_by': 'warehouse_id'}"/>
                     <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Prioridad" name="group_priority" context="{'group_by': 'priority'}"/>
                 </group>
             </search>
         </field>

@@ -680,7 +680,7 @@ class Requisitions(models.Model):
                 'product_id': line.product_id.id,
                 'product_qty': line.qty_pending,
                 'notes': line.note or '',
-                'state': 'draft',
+                'state': 'pending',
             })
             created_lines |= pr_line
 

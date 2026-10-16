@@ -23,7 +23,7 @@
             <field name="name">Solicitudes de Compra</field>
             <field name="res_model">requisition.purchase.request.line</field>
             <field name="view_mode">list,form</field>
-            <field name="context">{'search_default_filter_draft': 1}</field>
+            <field name="context">{'search_default_filter_pending_buy': 1}</field>
         </record>
     </data>
 </odoo>

@@ -149,33 +149,15 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
             supply_request.requisition_ids = [(4, self.requisition_id.id)]
 
 
-        alloc_vals_list = []
         for w_line in selected_lines:
             req_line = w_line.requisition_line_id
-            supply_line = self.env['requisition.supply.request.line'].create({
+            self.env['requisition.supply.request.line'].create({
                 'request_id': supply_request.id,
                 'requisition_line_id': req_line.id,
                 'product_id': req_line.product_id.id,
                 'product_qty': w_line.product_qty,
                 'notes': w_line.notes or req_line.note or '',
             })
-
-            supply_type = req_line.supply_type or (
-                'resg' if req_line.line_type in ('tool', 'equipment') else 'consumption'
-            )
-            alloc_vals_list.append({
-                'company_id': self.company_id.id,
-                'product_id': req_line.product_id.id,
-                'product_uom_id': req_line.product_uom_id.id,
-                'requested_qty': w_line.product_qty,
-                'delivered_qty': 0.0,
-                'supply_type': supply_type,
-                'supply_request_line_id': supply_line.id,
-                'requisition_line_id': req_line.id,
-                'state': 'in_progress',
-            })
-
-        self.env['supply.chain.allocation'].create(alloc_vals_list)
 
         if self.requisition_id.state == 'approved':
             self.requisition_id.action_in_progress()

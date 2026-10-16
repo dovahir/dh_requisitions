@@ -45,6 +45,18 @@ class SupplyChainAllocation(models.Model):
                 req._update_state_from_lines()
             if hasattr(req, 'line_ids'):
                 req.line_ids._compute_quantities()
+        pr_lines = self.mapped('purchase_request_line_id')
+        for pr in pr_lines:
+            if hasattr(pr, '_compute_quantities'):
+                pr._compute_quantities()
+            if hasattr(pr, '_compute_state'):
+                pr._compute_state()
+        sr_lines = self.mapped('supply_request_line_id')
+        for sr in sr_lines:
+            if hasattr(sr, '_compute_quantities'):
+                sr._compute_quantities()
+            if hasattr(sr, '_compute_state'):
+                sr._compute_state()
 
     def _notify_allocation_cancellation(self, cancel_action, reason):
         """Notifica en el chatter de la requisición vinculada sobre la cancelación y el motivo."""
@@ -84,8 +96,21 @@ class SupplyChainAllocation(models.Model):
                     rec.requisition_id._update_state_from_lines()
 
     def _on_move_delivered(self, move, qty):
-        """Extiende la entrega para refrescar estados en la requisición."""
-        super()._on_move_delivered(move, qty)
+        """
+        Extiende la entrega para refrescar estados en la requisición.
+        En transferencias con ubicación de tránsito (doble tramo), el despacho inicial
+        se conserva en tránsito ('in_progress') y la entrega definitiva se consolida
+        al recibirse físicamente en la obra destino.
+        """
+        for rec in self:
+            is_transit = move.location_dest_id and (
+                move.location_dest_id.usage == 'transit' or
+                (move.location_dest_id.company_id and move.location_dest_id == move.location_dest_id.company_id.internal_transit_location_id)
+            )
+            if rec.supply_request_line_id and is_transit:
+                rec.state = 'in_progress'
+                continue
+            rec.delivered_qty = min(qty, rec.requested_qty)
         self._sync_origin_document_status()
 
     def _on_move_returned(self, move, qty):

@@ -538,6 +538,20 @@ class RequisitionSupplyRequest(models.Model):
             if not existing_receipt:
                 self._create_receipt_picking(picking)
 
+        # Si es la recepción física en obra (Tránsito -> Obra), asentar delivered_qty en allocation
+        is_reception = (picking.location_dest_id.id == self.location_dest_id.id)
+        if is_reception and not picking._is_return_picking():
+            for move in picking.move_ids.filtered(lambda m: m.state == 'done'):
+                sr_line = move.supply_request_line_id
+                if sr_line and sr_line.allocation_ids:
+                    for alloc in sr_line.allocation_ids.filtered(lambda a: a.state != 'cancel'):
+                        delivered = min(alloc.requested_qty, alloc.delivered_qty + move.quantity)
+                        alloc.write({
+                            'delivered_qty': delivered,
+                            'state': 'done' if delivered >= alloc.requested_qty else 'in_progress',
+                        })
+                        alloc._sync_origin_document_status()
+
         self._compute_overall_state()
 
     def _create_receipt_picking(self, delivery_picking):
@@ -756,6 +770,11 @@ class RequisitionSupplyRequest(models.Model):
             'domain': [('supply_request_id', '=', self.id), ('location_dest_id', '=', self.location_dest_id.id)],
             'context': {'default_supply_request_id': self.id, 'create': False},
         }
+
+    def action_print_transfer_report(self):
+        """Genera e imprime el reporte de traspaso / remisión de suministro."""
+        self.ensure_one()
+        return self.env.ref('dh_requisitions.action_report_supply_transfer').report_action(self)
 
     @api.ondelete(at_uninstall=False)
     def _unlink_except_draft_or_cancel(self):

@@ -8,6 +8,14 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_print_transfer_report"
+                        string="Reporte de Traspaso"
+                        type="object"
+                        class="btn-secondary"
+                        icon="fa-print"
+                        invisible="not supply_request_id"/>
+            </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <field name="supply_request_id" invisible="1"/>
                 <field name="source_transfer_id" invisible="1"/>

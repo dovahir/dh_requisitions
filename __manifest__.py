@@ -15,11 +15,12 @@ Características principales:
 - Control de cantidades solicitadas, pendientes y efectivamente suministradas.
 - Solicitudes de suministro entre almacenes para abastecer obras y proyectos.
 - Configuración de rutas y traslados de material entre almacenes.
+- Consolidación de solicitudes a cotizaciones de compra con seguimiento de entregas y cancelaciones.
     """,
     "author": "Aldahir",
     "maintainer": "Aldahir",
     "website": "https://github.com/dovahir/dh_requisitions.git",
-    "depends": ["base", "mail", "hr", "stock", "supply_chain_aio"],
+    "depends": ["base", "mail", "hr", "stock", "purchase", "supply_chain_aio"],
     "data": [
         "security/requisitions_security.xml",
         "security/ir.model.access.csv",
@@ -42,6 +43,10 @@ Características principales:
         "wizard/requisition_supply_request_wizard_views.xml",
         "wizard/requisition_supply_request_block_wizard_views.xml",
         "wizard/requisition_supply_request_cancel_wizard_views.xml",
+        "wizard/requisition_purchase_request_add_to_rfq_wizard_views.xml",
+        "report/paper_format.xml",
+        "report/requisition_supply_transfer_report.xml",
+        "views/purchase_order_views.xml",
     ],
 
 

@@ -11,3 +11,4 @@ from . import stock_warehouse
 from . import stock_move
 from . import supply_chain_allocation
 from . import res_config_settings
+from . import purchase_order

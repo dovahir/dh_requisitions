@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="report_supply_transfer_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-set="is_picking" t-value="doc._name == 'stock.picking'"/>
+                <t t-set="picking" t-value="doc if is_picking else (doc.picking_ids.filtered(lambda p: doc.location_id and p.location_id.id == doc.location_id.id)[:1] or doc.picking_ids[:1])"/>
+                <t t-set="supply_request" t-value="doc.supply_request_id if (is_picking and doc.supply_request_id) else (doc if not is_picking else False)"/>
+                <t t-set="company" t-value="doc.company_id or doc.env.company"/>
+
+                <div class="article" t-att-data-oe-model="doc._name" t-att-data-oe-id="doc.id">
+                    <div class="header" style="font-family: Arial, sans-serif;">
+                        <div class="row align-items-center" style="border-bottom: 2px solid #2c3e50; padding-bottom: 6px;">
+                            <div class="col-6 text-start">
+                                <img t-if="company.logo" t-att-src="image_data_uri(company.logo)"
+                                     alt="Logo" style="max-height: 25mm; width: auto;"/>
+                            </div>
+                            <div class="col-6 text-end" style="font-size: 10pt; line-height: 1.3;">
+                                <h5 style="margin: 0; font-weight: bold; color: #2c3e50;"><t t-esc="company.name"/></h5>
+                                <p style="margin: 0;" t-if="company.vat"><strong>RFC: </strong><t t-esc="company.vat"/></p>
+                                <p style="margin: 0;" t-if="company.country_id"><t t-esc="company.country_id.name"/></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="page" style="font-family: Arial, sans-serif; font-size: 10pt; color: #212529;">
+                        <style>
+                            .report-title {
+                                font-size: 15pt;
+                                font-weight: bold;
+                                text-align: center;
+                                margin: 4mm 0 3mm 0;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                                color: #1a252f;
+                            }
+                            .info-box {
+                                width: 100%;
+                                margin-bottom: 4mm;
+                                background-color: #f8f9fa;
+                                border: 1px solid #dee2e6;
+                                border-radius: 4px;
+                                padding: 6px 10px;
+                            }
+                            .items-table {
+                                width: 100%;
+                                border-collapse: collapse;
+                                margin-top: 3mm;
+                                font-size: 9pt;
+                            }
+                            .items-table th {
+                                background-color: #e9ecef;
+                                font-weight: bold;
+                                border: 1px solid #ced4da;
+                                padding: 5px;
+                                vertical-align: middle;
+                                text-align: center;
+                            }
+                            .items-table td {
+                                border: 1px solid #ced4da;
+                                padding: 4px 6px;
+                                vertical-align: middle;
+                            }
+                            .signature-wrapper {
+                                margin-top: 15mm;
+                                page-break-inside: avoid;
+                            }
+                            .signature-line {
+                                margin: 16mm auto 2mm auto;
+                                border-top: 1px solid #000;
+                                width: 85%;
+                            }
+                            .empty-row-box {
+                                min-height: 22px;
+                            }
+                        </style>
+
+                        <div class="report-title">
+                            Reporte de Traspaso y Remisión de Suministro
+                        </div>
+
+                        <div class="info-box">
+                            <div class="row">
+                                <div class="col-6">
+                                    <p style="margin: 2px 0;">
+                                        <strong>Solicitud de Suministro:</strong>
+                                        <span t-esc="supply_request.name if supply_request else 'N/A'"/>
+                                    </p>
+                                    <p style="margin: 2px 0;" t-if="picking">
+                                        <strong>Albarán de Despacho:</strong>
+                                        <span t-esc="picking.name"/> (<span t-esc="picking.state"/>)
+                                    </p>
+                                    <p style="margin: 2px 0;">
+                                        <strong>Fecha Programada:</strong>
+                                        <span t-esc="(supply_request.scheduled_date if supply_request else picking.scheduled_date) or '-'"/>
+                                    </p>
+                                    <p style="margin: 2px 0;" t-if="supply_request and supply_request.request_uid">
+                                        <strong>Solicitado por:</strong>
+                                        <span t-esc="supply_request.request_uid.name"/>
+                                    </p>
+                                </div>
+                                <div class="col-6 text-end">
+                                    <p style="margin: 2px 0;">
+                                        <strong>Almacén Origen:</strong>
+                                        <span t-esc="(supply_request.warehouse_origin_id.name if supply_request else picking.location_id.display_name) or '-'"/>
+                                    </p>
+                                    <p style="margin: 2px 0;">
+                                        <strong>Almacén Destino (Obra):</strong>
+                                        <span t-esc="(supply_request.warehouse_dest_id.name if supply_request else picking.location_dest_id.display_name) or '-'"/>
+                                    </p>
+                                    <p style="margin: 2px 0;">
+                                        <strong>Estado de Suministro:</strong>
+                                        <span t-esc="dict(supply_request._fields['state'].selection).get(supply_request.state) if supply_request else picking.state"/>
+                                    </p>
+                                    <p style="margin: 2px 0;" t-if="supply_request and supply_request.requisition_ids">
+                                        <strong>Requisiciones Vinculadas:</strong>
+                                        <span t-esc="', '.join(supply_request.requisition_ids.mapped('name'))"/>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabla de Partidas -->
+                        <table class="table table-sm items-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 4%;">N°</th>
+                                    <th style="width: 38%; text-align: left;">Descripción del Producto</th>
+                                    <th style="width: 10%; text-align: right;">Cant. Solicitada</th>
+                                    <th style="width: 10%; text-align: right;">Cant. Enviada</th>
+                                    <th style="width: 8%;">UdM</th>
+                                    <th style="width: 15%;">Series / Lotes</th>
+                                    <th style="width: 15%;">Requisición Origen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Caso 1: Detalle por Movimientos de Picking -->
+                                <t t-if="picking and picking.move_ids">
+                                    <t t-foreach="picking.move_ids.sorted(key=lambda m: m.id)" t-as="move">
+                                        <tr>
+                                            <td class="text-center"><t t-esc="move_index + 1"/></td>
+                                            <td style="text-align: left;">
+                                                <span t-field="move.product_id.display_name"/>
+                                            </td>
+                                            <td class="text-end">
+                                                <t t-set="orig_line" t-value="move.supply_request_line_id"/>
+                                                <span t-esc="orig_line.product_qty if orig_line else move.product_uom_qty"/>
+                                            </td>
+                                            <td class="text-end">
+                                                <strong t-esc="move.quantity if move.state == 'done' else move.product_uom_qty"/>
+                                            </td>
+                                            <td class="text-center"><span t-esc="move.product_uom.name or ''"/></td>
+                                            <td class="text-center" style="font-size: 8.5pt;">
+                                                <t t-if="move.move_line_ids and any(ml.lot_id for ml in move.move_line_ids)">
+                                                    <span t-esc="', '.join(move.move_line_ids.mapped('lot_id.name'))"/>
+                                                </t>
+                                                <t t-elif="move.supply_request_line_id and move.supply_request_line_id.lot_ids">
+                                                    <span t-esc="', '.join(move.supply_request_line_id.lot_ids.mapped('name'))"/>
+                                                </t>
+                                                <t t-else="">-</t>
+                                            </td>
+                                            <td class="text-center" style="font-size: 8.5pt;">
+                                                <t t-if="move.requisition_line_id and move.requisition_line_id.requisition_id">
+                                                    <span t-esc="move.requisition_line_id.requisition_id.name"/>
+                                                </t>
+                                                <t t-elif="move.supply_request_line_id and move.supply_request_line_id.requisition_id">
+                                                    <span t-esc="move.supply_request_line_id.requisition_id.name"/>
+                                                </t>
+                                                <t t-else="">Directo / Stock</t>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </t>
+                                <!-- Caso 2: Emisión directa desde Solicitud de Suministro sin picking completado -->
+                                <t t-elif="supply_request and supply_request.line_ids">
+                                    <t t-foreach="supply_request.line_ids" t-as="line">
+                                        <tr>
+                                            <td class="text-center"><t t-esc="line_index + 1"/></td>
+                                            <td style="text-align: left;">
+                                                <span t-field="line.product_id.display_name"/>
+                                            </td>
+                                            <td class="text-end"><span t-field="line.product_qty"/></td>
+                                            <td class="text-end"><span t-field="line.qty_done"/></td>
+                                            <td class="text-center"><span t-esc="line.product_uom_id.name or ''"/></td>
+                                            <td class="text-center" style="font-size: 8.5pt;">
+                                                <t t-if="line.lot_ids">
+                                                    <span t-esc="', '.join(line.lot_ids.mapped('name'))"/>
+                                                </t>
+                                                <t t-else="">-</t>
+                                            </td>
+                                            <td class="text-center" style="font-size: 8.5pt;">
+                                                <span t-esc="line.requisition_id.name if line.requisition_id else 'Directo / Stock'"/>
+                                            </td>
+                                        </tr>
+                                    </t>
+                                </t>
+
+                                <!-- Renglones en blanco para anotaciones físicas de almacén -->
+                                <t t-set="total_items" t-value="len(picking.move_ids) if (picking and picking.move_ids) else (len(supply_request.line_ids) if supply_request else 0)"/>
+                                <t t-foreach="range(1, 4)" t-as="empty_idx">
+                                    <tr>
+                                        <td class="text-center text-muted"><t t-esc="total_items + empty_idx"/></td>
+                                        <td><div class="empty-row-box"></div></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                    </tr>
+                                </t>
+                            </tbody>
+                        </table>
+
+                        <!-- Observaciones Generales -->
+                        <div t-if="supply_request and supply_request.notes" style="margin-top: 3mm; font-size: 9pt;">
+                            <strong>Observaciones: </strong><span t-esc="supply_request.notes"/>
+                        </div>
+
+                        <!-- Bloque de 4 Firmas de Control de Traspaso -->
+                        <div class="signature-wrapper">
+                            <div class="container-fluid text-center text-uppercase" style="font-size: 8.5pt;">
+                                <div class="row row-cols-4">
+                                    <div class="col">
+                                        <div class="signature-line"></div>
+                                        <strong>Almacén Origen</strong><br/>
+                                        <span class="text-muted">Despachado / Firma</span>
+                                    </div>
+                                    <div class="col">
+                                        <div class="signature-line"></div>
+                                        <strong>Vigilancia</strong><br/>
+                                        <span class="text-muted">Salida / Verificación</span>
+                                    </div>
+                                    <div class="col">
+                                        <div class="signature-line"></div>
+                                        <strong>Transportista</strong><br/>
+                                        <span class="text-muted">En Tránsito / Operador</span>
+                                    </div>
+                                    <div class="col">
+                                        <div class="signature-line"></div>
+                                        <strong>Almacén Destino</strong><br/>
+                                        <span class="text-muted">Recepción Obra / Firma</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="footer text-muted" style="font-family: Arial, sans-serif; font-size: 8.5pt; border-top: 1px solid #ced4da; padding-top: 4px;">
+                        <div class="row">
+                            <div class="col-6 text-start">
+                                <span>Emitido por: </span><span t-esc="doc.env.user.name"/> - <span t-esc="context_timestamp(datetime.datetime.now()).strftime('%d/%m/%Y %H:%M')"/>
+                            </div>
+                            <div class="col-6 text-end">
+                                <span>Página </span><span class="page"/> / <span class="topage"/>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </t>
+        </t>
+    </template>
+
+    <!-- Acción de Reporte para Solicitud de Suministro -->
+    <record id="action_report_supply_transfer_request" model="ir.actions.report">
+        <field name="name">Reporte de Traspaso</field>
+        <field name="model">requisition.supply.request</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">dh_requisitions.report_supply_transfer_document</field>
+        <field name="report_file">dh_requisitions.report_supply_transfer_document</field>
+        <field name="print_report_name">'Traspaso - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_supply_transfer_report"/>
+        <field name="binding_model_id" ref="dh_requisitions.model_requisition_supply_request"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Acción de Reporte para Albaranes de Stock -->
+    <record id="action_report_supply_transfer_picking" model="ir.actions.report">
+        <field name="name">Reporte de Traspaso</field>
+        <field name="model">stock.picking</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">dh_requisitions.report_supply_transfer_document</field>
+        <field name="report_file">dh_requisitions.report_supply_transfer_document</field>
+        <field name="print_report_name">'Traspaso - %s' % (object.supply_request_id.name if object.supply_request_id else object.name)</field>
+        <field name="paperformat_id" ref="paperformat_supply_transfer_report"/>
+        <field name="binding_model_id" ref="stock.model_stock_picking"/>
+        <field name="binding_type">report</field>
+    </record>
+
+    <!-- Alias para compatibilidad de referencia común -->
+    <record id="action_report_supply_transfer" model="ir.actions.report">
+        <field name="name">Reporte de Traspaso</field>
+        <field name="model">requisition.supply.request</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">dh_requisitions.report_supply_transfer_document</field>
+        <field name="report_file">dh_requisitions.report_supply_transfer_document</field>
+        <field name="print_report_name">'Traspaso - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="paperformat_supply_transfer_report"/>
+    </record>
+</odoo>
