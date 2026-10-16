@@ -72,11 +72,28 @@
         <!-- ============================================================= -->
 
         <!-- 1. Reglas para Requisiciones de Cabecera -->
-        <record id="requisitions_user_department_draft_rule" model="ir.rule">
-            <field name="name">Requisiciones: Empleado Departamento Borrador</field>
+        <!-- 1.1 Lectura: creador, solicitante o departamento en cualquier estado -->
+        <record id="requisitions_user_department_read_rule" model="ir.rule">
+            <field name="name">Requisiciones: Empleado/Creador/Departamento Consulta</field>
             <field name="model_id" ref="model_requisitions"/>
             <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_user'))]"/>
-            <field name="domain_force">['&amp;', ('state', '=', 'draft'), '|', ('employee_id.user_id', '=', user.id), '&amp;', ('department_id', '!=', False), ('department_id', '=', user.employee_id.department_id.id)]</field>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+            <field name="domain_force">['|', '|', ('create_uid', '=', user.id), ('employee_id.user_id', '=', user.id), '&amp;', ('department_id', '!=', False), ('department_id', '=', user.employee_id.department_id.id)]</field>
+        </record>
+
+        <!-- 1.2 Escritura y Eliminación: solo en estado borrador -->
+        <record id="requisitions_user_department_write_rule" model="ir.rule">
+            <field name="name">Requisiciones: Empleado/Creador/Departamento Borrador Edición</field>
+            <field name="model_id" ref="model_requisitions"/>
+            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_user'))]"/>
+            <field name="perm_read" eval="0"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="1"/>
+            <field name="domain_force">['&amp;', ('state', '=', 'draft'), '|', '|', ('create_uid', '=', user.id), ('employee_id.user_id', '=', user.id), '&amp;', ('department_id', '!=', False), ('department_id', '=', user.employee_id.department_id.id)]</field>
         </record>
 
         <record id="requisitions_approver_manager_rule" model="ir.rule">
@@ -86,12 +103,40 @@
             <field name="domain_force">[(1, '=', 1)]</field>
         </record>
 
+        <record id="requisitions_stock_user_read_rule" model="ir.rule">
+            <field name="name">Requisiciones: Personal de Inventario Consulta</field>
+            <field name="model_id" ref="model_requisitions"/>
+            <field name="groups" eval="[(4, ref('stock.group_stock_user'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
         <!-- 2. Reglas para Líneas de Requisición -->
-        <record id="requisitions_line_user_rule" model="ir.rule">
-            <field name="name">Línea Requisición: Empleado Departamento Borrador</field>
+        <!-- 2.1 Lectura: líneas de requisiciones visibles para el usuario -->
+        <record id="requisitions_line_user_read_rule" model="ir.rule">
+            <field name="name">Línea Requisición: Empleado/Creador/Departamento Consulta</field>
             <field name="model_id" ref="model_requisitions_line"/>
             <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_user'))]"/>
-            <field name="domain_force">['&amp;', ('requisition_id.state', '=', 'draft'), '|', ('requisition_id.employee_id.user_id', '=', user.id), '&amp;', ('requisition_id.department_id', '!=', False), ('requisition_id.department_id', '=', user.employee_id.department_id.id)]</field>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+            <field name="domain_force">['|', '|', ('requisition_id.create_uid', '=', user.id), ('requisition_id.employee_id.user_id', '=', user.id), '&amp;', ('requisition_id.department_id', '!=', False), ('requisition_id.department_id', '=', user.employee_id.department_id.id)]</field>
+        </record>
+
+        <!-- 2.2 Escritura y Eliminación: solo cuando la requisición está en borrador -->
+        <record id="requisitions_line_user_write_rule" model="ir.rule">
+            <field name="name">Línea Requisición: Empleado/Creador/Departamento Borrador Edición</field>
+            <field name="model_id" ref="model_requisitions_line"/>
+            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_user'))]"/>
+            <field name="perm_read" eval="0"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="1"/>
+            <field name="domain_force">['&amp;', ('requisition_id.state', '=', 'draft'), '|', '|', ('requisition_id.create_uid', '=', user.id), ('requisition_id.employee_id.user_id', '=', user.id), '&amp;', ('requisition_id.department_id', '!=', False), ('requisition_id.department_id', '=', user.employee_id.department_id.id)]</field>
         </record>
 
         <record id="requisitions_line_approver_manager_rule" model="ir.rule">
@@ -99,6 +144,17 @@
             <field name="model_id" ref="model_requisitions_line"/>
             <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_approver')), (4, ref('dh_requisitions.group_requisitions_manager'))]"/>
             <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+
+        <record id="requisitions_line_stock_user_read_rule" model="ir.rule">
+            <field name="name">Línea Requisición: Personal de Inventario Consulta</field>
+            <field name="model_id" ref="model_requisitions_line"/>
+            <field name="groups" eval="[(4, ref('stock.group_stock_user'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
         </record>
     </data>
 </odoo>

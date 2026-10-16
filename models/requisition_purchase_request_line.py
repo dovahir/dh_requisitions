@@ -412,8 +412,16 @@ class RequisitionPurchaseRequestLine(models.Model):
             action['res_id'] = pickings.id
         return action
 
+    def _check_purchase_request_permissions(self):
+        """Verifica que el usuario pertenezca al área de compras o administrador de requisiciones."""
+        if not (self.env.user.has_group('purchase.group_purchase_user') or
+                self.env.user.has_group('purchase.group_purchase_manager') or
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
+            raise UserError(_("Solo el personal del área de compras o administradores de requisiciones tienen autorización para gestionar solicitudes de compra."))
+
     def action_open_add_to_rfq_wizard(self):
         """Abre el asistente para agregar las líneas seleccionadas a una RFQ."""
+        self._check_purchase_request_permissions()
         action = self.env['ir.actions.actions']._for_xml_id('dh_requisitions.action_requisition_purchase_request_add_to_rfq')
         action['context'] = {
             'active_model': 'requisition.purchase.request.line',
@@ -424,6 +432,7 @@ class RequisitionPurchaseRequestLine(models.Model):
     def action_cancel_line(self, cancel_action='reintegrate', reason=None):
         """Cancela la línea de solicitud y actualiza o cancela las asignaciones activas."""
         self.ensure_one()
+        self._check_purchase_request_permissions()
         if self.state in ('cancel', 'purchased'):
             raise UserError(_("No se puede cancelar una línea en estado '%s'.") % dict(_LINE_STATES).get(self.state, self.state))
 
@@ -448,6 +457,7 @@ class RequisitionPurchaseRequestLine(models.Model):
 
     def action_cancel_multiple(self):
         """Acción de cabecera para cancelar múltiples líneas seleccionadas en lote."""
+        self._check_purchase_request_permissions()
         if not self:
             raise UserError(_("No hay líneas seleccionadas."))
 

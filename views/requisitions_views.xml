@@ -56,7 +56,7 @@
                     <button name="action_open_delivery_wizard" string="Entregar Productos" type="object"
                             class="btn-primary"
                             invisible="state not in ('approved', 'in_progress', 'partially_done') or not has_deliverable_products"
-                            groups="dh_requisitions.group_requisitions_manager"/>
+                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_open_supply_request_wizard" string="Solicitar Suministro" type="object"
                             class="btn btn-secondary"
                             invisible="state not in ('approved', 'in_progress', 'partially_done') or not is_not_base_warehouse or not has_deliverable_products"/>
@@ -65,7 +65,7 @@
                     <button name="action_create_service_rfq" string="Crear RFQ de Servicios" type="object"
                             class="btn btn-secondary"
                             invisible="state not in ('approved', 'in_progress') or not has_services"
-                            groups="purchase.group_purchase_manager"/>
+                            groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_open_cancel_wizard" string="Cancelar" type="object"
                             invisible="state not in ('approved', 'in_progress', 'partially_done')"/>
                     <field name="state" widget="statusbar"

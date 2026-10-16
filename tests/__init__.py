@@ -4,3 +4,4 @@ from . import test_supply_request
 from . import test_multi_company
 from . import test_purchase_request
 from . import test_supply_request_allocation
+from . import test_permissions

@@ -316,9 +316,16 @@ class RequisitionSupplyRequest(models.Model):
     # -------------------------------------------------------------------------
     # ACCIONES DE WORKFLOW Y ESTADOS
     # -------------------------------------------------------------------------
+    def _check_supply_request_permissions(self):
+        """Verifica que el usuario pertenezca al área de inventario o administrador de requisiciones."""
+        if not (self.env.user.has_group('stock.group_stock_user') or
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
+            raise UserError(_("Solo el personal de inventario o administradores de requisiciones tienen autorización para gestionar solicitudes de suministro."))
+
     def action_button_draft(self):
         """Permite regresar a borrador cuando la entrega fue cancelada o devuelta."""
         self.ensure_one()
+        self._check_supply_request_permissions()
         if self.state not in ('delivery_returned', 'cancel', 'receipt_cancelled'):
             raise UserError(_("Solo se puede restablecer a borrador si la solicitud está cancelada, devuelta o con recepción rechazada."))
         self.write({
@@ -333,6 +340,7 @@ class RequisitionSupplyRequest(models.Model):
 
     def action_button_is_blocked(self):
         """Conmuta el estado de bloqueo para corte de almacén."""
+        self._check_supply_request_permissions()
         for rec in self:
             rec.is_blocked = not rec.is_blocked
             status_txt = _("Bloqueada (Corte realizado)") if rec.is_blocked else _("Desbloqueada (Disponible para requisiciones)")
@@ -344,6 +352,7 @@ class RequisitionSupplyRequest(models.Model):
     def action_open_block_wizard(self):
         """Abre el asistente de corte de almacén."""
         self.ensure_one()
+        self._check_supply_request_permissions()
         return {
             'type': 'ir.actions.act_window',
             'name': _('Hacer Corte de Almacén'),
@@ -356,6 +365,7 @@ class RequisitionSupplyRequest(models.Model):
     def action_button_cancel(self):
         """Abre el asistente de cancelación con motivo."""
         self.ensure_one()
+        self._check_supply_request_permissions()
         return {
             'type': 'ir.actions.act_window',
             'name': _('Cancelar Solicitud de Suministro'),
@@ -374,6 +384,7 @@ class RequisitionSupplyRequest(models.Model):
         Maneja asignación de series/lotes seleccionados y enlaza con supply.chain.allocation.
         """
         self.ensure_one()
+        self._check_supply_request_permissions()
         if not self.line_ids:
             raise ValidationError(_("La solicitud de suministro no contiene partidas. Agregue productos antes de crear la entrega."))
 

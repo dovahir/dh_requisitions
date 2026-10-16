@@ -49,31 +49,36 @@
                             type="object"
                             class="btn-primary"
                             invisible="state != 'draft'"
+                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
                             confirm="¿Está seguro de que desea crear la entrega? Esta acción generará el albarán de salida hacia tránsito y reservará existencias."/>
 
                     <button name="action_open_block_wizard"
                             string="Hacer Corte"
                             type="object"
                             class="btn-secondary"
-                            invisible="state != 'draft' or not id or is_blocked"/>
+                            invisible="state != 'draft' or not id or is_blocked"
+                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
 
                     <button name="action_button_is_blocked"
                             string="Mostrar Solicitud"
                             type="object"
                             class="btn-secondary"
                             invisible="state != 'draft' or not id or not is_blocked"
+                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
                             confirm="¿Está seguro de desbloquear esta solicitud? Estará disponible nuevamente para recibir partidas desde requisiciones."/>
 
                     <button name="action_button_draft"
                             string="Regresar a Borrador"
                             type="object"
-                            invisible="state not in ('delivery_returned', 'cancel', 'receipt_cancelled')"/>
+                            invisible="state not in ('delivery_returned', 'cancel', 'receipt_cancelled')"
+                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
 
                     <button name="action_button_cancel"
                             string="Cancelar"
                             type="object"
                             class="btn-outline-danger"
-                            invisible="state in ('done_exact', 'done_partial', 'done_adjusted', 'cancel', 'delivery_returned')"/>
+                            invisible="state in ('done_exact', 'done_partial', 'done_adjusted', 'cancel', 'delivery_returned')"
+                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
 
                     <button name="action_print_transfer_report"
                             string="Imprimir Traspaso"

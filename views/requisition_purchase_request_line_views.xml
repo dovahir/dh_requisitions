@@ -59,6 +59,7 @@
                         class="text-danger"
                         title="Cancelar partida"
                         invisible="state in ('cancel', 'purchased')"
+                        groups="purchase.group_purchase_user,purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
                         confirm="¿Está seguro de cancelar esta solicitud de compra?"/>
             </list>
         </field>
@@ -76,12 +77,14 @@
                             type="object"
                             class="btn-primary"
                             icon="fa-shopping-cart"
-                            invisible="state in ('cancel', 'purchased')"/>
+                            invisible="state in ('cancel', 'purchased')"
+                            groups="purchase.group_purchase_user,purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_cancel_line"
                             string="Cancelar Partida"
                             type="object"
                             class="btn-secondary"
                             invisible="state in ('cancel', 'purchased')"
+                            groups="purchase.group_purchase_user,purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
                             confirm="¿Está seguro de cancelar esta solicitud de compra?"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="pending,in_progress,to_receive,partially_purchased,purchased"/>

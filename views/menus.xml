@@ -16,12 +16,14 @@
                   name="Solicitudes de Suministro"
                   parent="menu_requisitions_root"
                   action="action_requisition_supply_request"
+                  groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
                   sequence="20"/>
 
         <menuitem id="menu_requisition_purchase_request_line_main"
                   name="Solicitudes de Compra"
                   parent="menu_requisitions_root"
                   action="action_requisition_purchase_request_line"
+                  groups="purchase.group_purchase_user,purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
                   sequence="30"/>
 
         <!-- Submenú Configuración -->
@@ -57,14 +59,14 @@
         <menuitem id="menu_stock_supplies_category"
                   name="Suministrar a Obras"
                   parent="stock.menu_stock_warehouse_mgmt"
-                  groups="dh_requisitions.group_requisitions_user"
+                  groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
                   sequence="10"/>
 
         <menuitem id="menu_stock_requisition_supply_request"
                   name="Solicitudes de Suministro"
                   parent="menu_stock_supplies_category"
                   action="action_requisition_supply_request"
-                  groups="dh_requisitions.group_requisitions_user"
+                  groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
                   sequence="10"/>
     </data>
 </odoo>

@@ -59,7 +59,7 @@ class Requisitions(models.Model):
         string="Solicita",
         required=True,
         tracking=True,
-        default=False
+        default=lambda self: self.env.user.employee_id.id or False
     )
     department_id = fields.Many2one(
         'hr.department',
@@ -544,8 +544,9 @@ class Requisitions(models.Model):
     def action_create_service_rfq(self):
         """Genera una Solicitud de Cotización (RFQ de Compra) directa para las líneas de servicios pendientes."""
         self.ensure_one()
-        if not self.env.user.has_group('purchase.group_purchase_manager'):
-            raise UserError(_("Solo los usuarios con rol Administrador de Compras pueden generar cotizaciones de servicios."))
+        if not (self.env.user.has_group('purchase.group_purchase_manager') or
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
+            raise UserError(_("Solo los usuarios con rol Administrador de Compras o Administrador de Requisiciones pueden generar cotizaciones de servicios."))
 
         service_lines = self.service_line_ids.filtered(
             lambda l: l.line_state not in ('done', 'cancel') and l.qty_pending > 0
@@ -616,8 +617,9 @@ class Requisitions(models.Model):
     def action_open_delivery_wizard(self):
         """Abre el asistente interactivo para generar despachos y entregas de almacén."""
         self.ensure_one()
-        if not self.env.user.has_group('dh_requisitions.group_requisitions_manager'):
-            raise UserError(_("Solo los administradores de requisiciones tienen autorización para generar entregas de almacén."))
+        if not (self.env.user.has_group('stock.group_stock_user') or
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
+            raise UserError(_("Solo el personal de inventario y los administradores de requisiciones tienen autorización para generar entregas de almacén."))
         if self.state not in ('approved', 'in_progress', 'partially_done'):
             raise UserError(_("Solo se pueden generar despachos para requisiciones aprobadas o en proceso."))
         eligible_lines = self.line_ids.filtered(
