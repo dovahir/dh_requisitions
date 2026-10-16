@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- ================================================================= -->
+    <!-- VISTA LIST (ÁRBOL)                                                -->
+    <!-- ================================================================= -->
+    <record id="view_requisition_supply_request_list" model="ir.ui.view">
+        <field name="name">requisition.supply.request.list</field>
+        <field name="model">requisition.supply.request</field>
+        <field name="arch" type="xml">
+            <list string="Solicitudes de Suministro"
+                  decoration-muted="state == 'draft'"
+                  decoration-info="state == 'delivery_created'"
+                  decoration-primary="state == 'in_transit'"
+                  decoration-success="state in ('done_exact', 'done_adjusted')"
+                  decoration-warning="state == 'done_partial'"
+                  decoration-danger="state in ('cancel', 'delivery_returned', 'receipt_cancelled')">
+                <field name="name" decoration-bf="1"/>
+                <field name="request_uid" optional="hide"/>
+                <field name="warehouse_origin_id" string="Almacén Origen" optional="show"/>
+                <field name="location_id" string="Origen" optional="hide"/>
+                <field name="warehouse_dest_id" string="Almacén Destino" optional="show"/>
+                <field name="location_dest_id" string="Destino" optional="hide"/>
+                <field name="date_request" optional="show"/>
+                <field name="scheduled_date" optional="show"/>
+                <field name="lines_count" optional="show"/>
+                <field name="state" widget="badge" optional="show"
+                       decoration-muted="state == 'draft'"
+                       decoration-info="state == 'delivery_created'"
+                       decoration-primary="state == 'in_transit'"
+                       decoration-success="state in ('done_exact', 'done_adjusted')"
+                       decoration-warning="state == 'done_partial'"
+                       decoration-danger="state in ('cancel', 'delivery_returned', 'receipt_cancelled')"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ================================================================= -->
+    <!-- VISTA FORMULARIO                                                  -->
+    <!-- ================================================================= -->
+    <record id="view_requisition_supply_request_form" model="ir.ui.view">
+        <field name="name">requisition.supply.request.form</field>
+        <field name="model">requisition.supply.request</field>
+        <field name="arch" type="xml">
+            <form string="Solicitud de Suministro">
+                <header>
+                    <button name="action_create_delivery"
+                            string="Crear Entrega"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'draft'"
+                            confirm="¿Está seguro de que desea crear la entrega? Esta acción generará el albarán de salida hacia tránsito y reservará existencias."/>
+
+                    <button name="action_open_block_wizard"
+                            string="Hacer Corte"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state != 'draft' or not id or is_blocked"/>
+
+                    <button name="action_button_is_blocked"
+                            string="Mostrar Solicitud"
+                            type="object"
+                            class="btn-secondary"
+                            invisible="state != 'draft' or not id or not is_blocked"
+                            confirm="¿Está seguro de desbloquear esta solicitud? Estará disponible nuevamente para recibir partidas desde requisiciones."/>
+
+                    <button name="action_button_draft"
+                            string="Regresar a Borrador"
+                            type="object"
+                            invisible="state not in ('delivery_returned', 'cancel', 'receipt_cancelled')"/>
+
+                    <button name="action_button_cancel"
+                            string="Cancelar"
+                            type="object"
+                            class="btn-outline-danger"
+                            invisible="state in ('done_exact', 'done_partial', 'done_adjusted', 'cancel', 'delivery_returned')"/>
+
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,delivery_created,in_transit,done_exact"/>
+                </header>
+
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button type="object" name="action_view_outgoing" class="oe_stat_button" icon="fa-truck">
+                            <field name="outgoing_count" widget="statinfo" string="Entregas"/>
+                        </button>
+                        <button type="object" name="action_view_incoming" class="oe_stat_button" icon="fa-truck">
+                            <field name="incoming_count" widget="statinfo" string="Recepciones"/>
+                        </button>
+                    </div>
+
+                    <div class="oe_title">
+                        <h1 class="d-flex align-items-center">
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <!-- Banners y Alertas de Estado (Bootstrap 5.3+) -->
+                    <div class="alert alert-info text-center py-2" role="alert"
+                         invisible="state != 'draft' or not id or is_blocked">
+                        <i class="fa fa-info-circle me-1" title="Información"/>
+                        Solicitud en proceso. Puede continuar agregando partidas desde las requisiciones o manualmente.
+                    </div>
+
+                    <div class="alert alert-warning text-center py-2" role="alert"
+                         invisible="not is_blocked or state != 'draft'">
+                        <i class="fa fa-lock me-1" title="Corte Realizado"/>
+                        <strong>Corte de almacén activo:</strong> Esta solicitud está bloqueada para la adición de nuevas partidas desde requisiciones.
+                    </div>
+
+                    <div class="alert alert-warning text-center py-2" role="alert"
+                         invisible="state != 'delivery_created' or delivery_alert == 'cancelled'">
+                        <i class="fa fa-list-alt me-1" title="Entrega Creada"/>
+                        <strong>Entrega creada:</strong> El albarán de salida ha sido emitido. Valide el envío en Inventario para iniciar el tránsito.
+                    </div>
+
+                    <div class="alert alert-info text-center py-2" role="alert"
+                         invisible="state != 'in_transit'">
+                        <i class="fa fa-truck me-1" title="En Tránsito"/>
+                        <strong>Material en tránsito:</strong> La entrega fue validada y los productos están en camino a la obra. Pendiente de recepción.
+                    </div>
+
+                    <div class="alert alert-danger text-center py-2" role="alert"
+                         invisible="state != 'receipt_cancelled'">
+                        <i class="fa fa-exclamation-circle me-1" title="Recepción Cancelada"/>
+                        <strong>Recepción rechazada / cancelada:</strong> Los productos no fueron ingresados en la obra. Se recomienda procesar la devolución.
+                    </div>
+
+                    <div class="alert alert-danger text-center py-2" role="alert"
+                         invisible="state != 'cancel' and delivery_alert != 'cancelled'">
+                        <i class="fa fa-times-circle me-1" title="Cancelado"/>
+                        La solicitud de suministro o sus albaranes asociados han sido cancelados.
+                    </div>
+
+                    <div class="alert alert-warning text-center py-2" role="alert"
+                         invisible="delivery_alert != 'returned' and state != 'delivery_returned'">
+                        <i class="fa fa-undo me-1" title="Devuelta"/>
+                        <strong>Entrega devuelta:</strong> Los materiales han regresado al almacén de origen.
+                    </div>
+
+                    <div class="alert alert-success text-center py-2" role="alert"
+                         invisible="state not in ('done_exact', 'done_partial', 'done_adjusted') or delivery_alert != 'exact'">
+                        <i class="fa fa-check-circle me-1" title="Traslado Completo"/>
+                        <strong>Traslado concluido:</strong> Todos los productos de la solicitud fueron recibidos en destino satisfactoriamente.
+                    </div>
+
+                    <div class="alert alert-warning text-center py-2" role="alert"
+                         invisible="state not in ('done_exact', 'done_partial', 'done_adjusted') or delivery_alert != 'less'">
+                        <i class="fa fa-exclamation-triangle me-1" title="Traslado Menor"/>
+                        <strong>Traslado parcial:</strong> La cantidad recibida fue menor a la programada o se retiraron partidas.
+                    </div>
+
+                    <div class="alert alert-info text-center py-2" role="alert"
+                         invisible="state not in ('done_exact', 'done_partial', 'done_adjusted') or delivery_alert != 'more'">
+                        <i class="fa fa-info-circle me-1" title="Traslado Mayor"/>
+                        <strong>Aviso:</strong> Se trasladaron productos adicionales o en cantidad mayor a la estimada.
+                    </div>
+
+                    <div class="alert alert-warning text-center py-2" role="alert"
+                         invisible="delivery_alert != 'backorder_pending'">
+                        <i class="fa fa-clock-o me-1" title="Backorder Pendiente"/>
+                        <strong>Orden parcial pendiente:</strong> Existe un backorder activo. Su recepción se creará automáticamente al validar el envío restante.
+                    </div>
+
+                    <group col="3">
+                        <group string="Información">
+                            <field name="company_id" invisible="1"/>
+                            <field name="request_uid" widget="many2one_avatar_user"/>
+                            <field name="date_request"/>
+                            <field name="scheduled_date" readonly="state != 'draft'"/>
+                            <field name="requisition_ids" widget="many2many_tags" options="{'no_create': True}" readonly="1"/>
+                        </group>
+                        <group string="Origen (Base)">
+                            <field name="picking_type_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                            <field name="warehouse_origin_id" options="{'no_create': True, 'no_open': True}" readonly="1" force_save="1"/>
+                            <field name="location_id" options="{'no_create': True, 'no_open': True}" readonly="1" force_save="1"/>
+                        </group>
+                        <group string="Destino (Obra)">
+                            <field name="picking_type_dest_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                            <field name="warehouse_dest_id" options="{'no_create': True, 'no_open': True}" readonly="1" force_save="1"/>
+                            <field name="location_dest_id" options="{'no_create': True, 'no_open': True}" readonly="1" force_save="1"/>
+                        </group>
+                    </group>
+
+                    <!-- Campos auxiliares de estado -->
+                    <group invisible="1">
+                        <field name="delivery_alert"/>
+                        <field name="return_type"/>
+                        <field name="is_blocked"/>
+                        <field name="has_transferred_lines"/>
+                    </group>
+
+                    <group>
+                        <field name="notes" readonly="state != 'draft'" placeholder="Instrucciones logísticas, referencias de flete u observaciones..."/>
+                    </group>
+
+                    <notebook>
+                        <page string="Partidas a Suministrar" name="lines_page">
+                            <field name="line_ids" readonly="state != 'draft'">
+                                <list editable="bottom">
+                                    <field name="requisition_id" widget="many2one" optional="show"/>
+                                    <field name="product_id" options="{'no_create': True}" readonly="requisition_line_id"/>
+                                    <field name="request_qty" optional="show" readonly="1"/>
+                                    <field name="product_qty" decoration-bf="1"/>
+                                    <field name="product_uom_id" string="UdM" options="{'no_create': True}" readonly="1" force_save="1"/>
+                                    <field name="has_tracking" column_invisible="True"/>
+                                    <field name="available_lot_ids" column_invisible="True"/>
+                                    <field name="lot_ids" string="Series/Lotes"
+                                           widget="many2many_tags"
+                                           options="{'no_create': True}"
+                                           invisible="has_tracking == 'none'"
+                                           optional="show"/>
+                                    <field name="requester_name" optional="show" readonly="1"/>
+                                    <field name="requisition_deadline" optional="show"/>
+                                    <field name="notes" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <!-- Chatter Nativo de Odoo 19 -->
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- ================================================================= -->
+    <!-- VISTA BÚSQUEDA                                                    -->
+    <!-- ================================================================= -->
+    <record id="view_requisition_supply_request_search" model="ir.ui.view">
+        <field name="name">requisition.supply.request.search</field>
+        <field name="model">requisition.supply.request</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" string="Folio o Referencia" filter_domain="['|', ('name', 'ilike', self), ('notes', 'ilike', self)]"/>
+                <field name="warehouse_dest_id"/>
+                <field name="warehouse_origin_id"/>
+                <field name="requisition_ids"/>
+                <separator/>
+                <filter string="En Borrador" name="filter_draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="Entrega Creada" name="filter_delivery_created" domain="[('state', '=', 'delivery_created')]"/>
+                <filter string="En Tránsito" name="filter_in_transit" domain="[('state', '=', 'in_transit')]"/>
+                <filter string="Trasladadas" name="filter_done" domain="[('state', 'in', ('done_exact', 'done_partial', 'done_adjusted'))]"/>
+                <filter string="Canceladas" name="filter_cancel" domain="[('state', '=', 'cancel')]"/>
+                <separator/>
+                <filter string="Mis Solicitudes" name="filter_my_requests" domain="[('request_uid', '=', uid)]"/>
+                <filter string="En Corte de Almacén" name="filter_blocked" domain="[('is_blocked', '=', True)]"/>
+                <group>
+                    <filter string="Almacén Destino (Obra)" name="group_dest" context="{'group_by': 'warehouse_dest_id'}"/>
+                    <filter string="Almacén Origen (Base)" name="group_origin" context="{'group_by': 'warehouse_origin_id'}"/>
+                    <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Fecha de Solicitud" name="group_date" context="{'group_by': 'date_request:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

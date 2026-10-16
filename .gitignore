@@ -1,0 +1,13 @@
+__pycache__/
+models/__pycache__
+wizards/__pycache__
+.env
+.venv
+env/
+venv/
+.vscode/
+.idea/
+.antigravity/
+.gemini/
+*.log
+*.tmp

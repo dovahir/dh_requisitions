@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_requisition_reject_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.reject.wizard.form</field>
+        <field name="model">requisition.reject.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Rechazar Requisición">
+                <field name="requisition_id" invisible="1"/>
+                <p class="text-muted">
+                    Por favor, indique el motivo por el cual rechaza esta requisición. Este mensaje quedará registrado en el historial (chatter) de la misma.
+                </p>
+                <group>
+                    <field name="reason" placeholder="Especifique el motivo del rechazo..." nolabel="1"/>
+                </group>
+                <footer>
+                    <button name="action_confirm_reject" string="Rechazar Requisición" type="object" class="btn-danger"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

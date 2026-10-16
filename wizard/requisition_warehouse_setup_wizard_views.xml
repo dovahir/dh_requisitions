@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_requisition_warehouse_setup_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.warehouse.setup.wizard.form</field>
+        <field name="model">requisition.warehouse.setup.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Configurar Rutas de Suministro para Requisiciones">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        Este asistente configurará automáticamente las <strong>rutas de suministro</strong> necesarias entre el almacén base y los almacenes de obra seleccionados:
+                        <ul class="mb-0 mt-2">
+                            <li>Ubicación de tránsito dedicada: <em>[Base] - [Obra]</em></li>
+                            <li>Tipo de operación de salida en el almacén base hacia la ubicación de tránsito</li>
+                            <li>Tipo de operación de recepción interna en la obra desde la ubicación de tránsito</li>
+                            <li>Enlace directo de recepción predeterminada entre ambos tipos de operación</li>
+                        </ul>
+                    </div>
+                    <group>
+                        <group string="Almacén Base (Origen)">
+                            <field name="warehouse_origin_id" options="{'no_open': True, 'no_create': True}"/>
+                        </group>
+                        <group string="Almacenes de Obra (Destino)">
+                            <field name="warehouse_dest_ids" widget="many2many_tags" options="{'no_create': True}" placeholder="Seleccione uno o más almacenes de obra..."/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_configure_routes" string="Configurar Rutas" type="object" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_requisition_warehouse_setup_wizard" model="ir.actions.act_window">
+        <field name="name">Configurar Rutas de Suministro</field>
+        <field name="res_model">requisition.warehouse.setup.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_form_dh_requisitions" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.dh.requisitions</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app data-string="Requisiciones" string="Requisiciones" name="dh_requisitions"
+                     logo="/dh_requisitions/static/description/icon.png"
+                     groups="dh_requisitions.group_requisitions_manager">
+
+                    <block title="Logística y Suministro" name="requisitions_supply_block">
+                        <setting string="Almacén Base Predeterminado" help="Almacén central sugerido automáticamente en las solicitudes de suministro hacia obras.">
+                            <field name="requisition_default_warehouse_origin_id"/>
+                        </setting>
+                        <setting id="requisition_warehouse_setup_setting"
+                                 string="Rutas de Suministro desde Almacén Base"
+                                 help="Aprovisiona automáticamente las ubicaciones de tránsito dedicadas y los tipos de operación interna de despacho y recepción entre el almacén base y los almacenes de obra.">
+                            <div class="content-group">
+                                <div class="mt-2">
+                                    <button name="action_open_requisition_warehouse_setup"
+                                            type="object"
+                                            string="Configurar Rutas de Suministro"
+                                            icon="oi-arrow-right"
+                                            class="btn-primary btn-sm"/>
+                                </div>
+                                <div class="text-muted mt-2">
+                                    <i class="fa fa-info-circle me-1 text-primary"/>
+                                    <span>Genera y encadena las transferencias internas hacia las obras partiendo del almacén base seleccionado.</span>
+                                </div>
+                            </div>
+                        </setting>
+                    </block>
+
+                    <block title="Políticas de Aprobación" name="requisitions_approval_block">
+                        <setting string="Auto-aprobación para Aprobadores" help="Aprobar automáticamente las requisiciones confirmadas por usuarios con rol de Aprobador o Administrador.">
+                            <field name="requisition_allow_auto_approval"/>
+                        </setting>
+                    </block>
+
+                    <block title="Clasificación de Productos" name="requisitions_categories_block">
+                        <setting string="Categorías de Requisición" help="Configurar qué categorías de productos están habilitadas y su tipo de requisición.">
+                            <button name="%(product.product_category_action_form)d" type="action"
+                                    string="Configurar Categorías" icon="oi-arrow-right" class="btn-link"/>
+                        </setting>
+                    </block>
+
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Acción para abrir los Ajustes con la pestaña de Requisiciones seleccionada -->
+    <record id="action_dh_requisitions_config_settings" model="ir.actions.act_window">
+        <field name="name">Ajustes</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="target">current</field>
+        <field name="context">{'module': 'dh_requisitions'}</field>
+    </record>
+</odoo>

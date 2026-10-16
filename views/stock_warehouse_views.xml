@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================= -->
+    <!-- EXTENSIÓN: Almacenes - Configuración de Rutas de Suministro       -->
+    <!-- ================================================================= -->
+    <record id="view_warehouse_form_inherit_dh_requisitions" model="ir.ui.view">
+        <field name="name">stock.warehouse.form.inherit.dh.requisitions</field>
+        <field name="model">stock.warehouse</field>
+        <field name="inherit_id" ref="stock.view_warehouse"/>
+        <field name="arch" type="xml">
+            <!-- Botón de acción en la cabecera del almacén (visible solo en el Almacén Base Predeterminado) -->
+            <xpath expr="//sheet" position="before">
+                <header>
+                    <button name="action_open_requisition_warehouse_setup"
+                            string="Configurar Rutas de Suministro"
+                            type="object"
+                            class="btn-primary"
+                            icon="fa-cogs"
+                            invisible="not is_default_requisition_warehouse"/>
+                </header>
+            </xpath>
+
+            <!-- Smart Button para monitorear rutas de suministro del almacén -->
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="is_default_requisition_warehouse" invisible="1"/>
+                <button name="action_view_requisition_picking_types"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="oi-arrows-v"
+                        invisible="not is_default_requisition_warehouse and requisition_routes_count == 0">
+                    <field name="requisition_routes_count" widget="statinfo" string="Rutas Suministro"/>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

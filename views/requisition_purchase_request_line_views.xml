@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Vista List (Árbol) -->
+    <record id="view_requisition_purchase_request_line_list" model="ir.ui.view">
+        <field name="name">requisition.purchase.request.line.list</field>
+        <field name="model">requisition.purchase.request.line</field>
+        <field name="arch" type="xml">
+            <list string="Líneas de Solicitud de Compra"
+                  decoration-info="state == 'draft'"
+                  decoration-warning="state == 'in_progress'"
+                  decoration-success="state == 'purchased'"
+                  decoration-muted="state == 'cancel'">
+                <field name="name"/>
+                <field name="date_required"/>
+                <field name="requisition_id"/>
+                <field name="product_id"/>
+                <field name="product_qty"/>
+                <field name="product_uom_id"/>
+                <field name="warehouse_id"/>
+                <field name="purchase_line_id" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state == 'in_progress'"
+                       decoration-success="state == 'purchased'"
+                       decoration-muted="state == 'cancel'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Vista Formulario -->
+    <record id="view_requisition_purchase_request_line_form" model="ir.ui.view">
+        <field name="name">requisition.purchase.request.line.form</field>
+        <field name="model">requisition.purchase.request.line</field>
+        <field name="arch" type="xml">
+            <form string="Línea de Solicitud de Compra">
+                <header>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,in_progress,purchased"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Detalle de Producto y Requisición">
+                            <field name="requisition_id"/>
+                            <field name="requisition_line_id" options="{'no_open': True}"/>
+                            <field name="product_id"/>
+                            <field name="product_qty"/>
+                            <field name="product_uom_id"/>
+                        </group>
+                        <group string="Logística y Destino">
+                            <field name="date_required"/>
+                            <field name="warehouse_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="purchase_line_id" options="{'no_create': True}"/>
+                            <field name="allocation_id" options="{'no_create': True}" groups="base.group_no_one"/>
+                        </group>
+                    </group>
+                    <group string="Especificaciones / Notas">
+                        <field name="notes" nolabel="1" placeholder="Detalles técnicos o instrucciones para el comprador..."/>
+                    </group>
+                </sheet>
+                <!-- Chatter de Odoo 19 -->
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vista Búsqueda -->
+    <record id="view_requisition_purchase_request_line_search" model="ir.ui.view">
+        <field name="name">requisition.purchase.request.line.search</field>
+        <field name="model">requisition.purchase.request.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="product_id"/>
+                <field name="requisition_id"/>
+                <field name="warehouse_id"/>
+                <filter string="Pendientes" name="filter_draft" domain="[('state', '=', 'draft')]"/>
+                <filter string="En Compra" name="filter_in_progress" domain="[('state', '=', 'in_progress')]"/>
+                <filter string="Compradas" name="filter_purchased" domain="[('state', '=', 'purchased')]"/>
+                <separator/>
+                <group>
+                    <filter string="Producto" name="group_product" context="{'group_by': 'product_id'}"/>
+                    <filter string="Requisición" name="group_req" context="{'group_by': 'requisition_id'}"/>
+                    <filter string="Almacén Destino" name="group_wh" context="{'group_by': 'warehouse_id'}"/>
+                    <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Vista List: Seguimiento Detallado de Líneas de Requisición -->
+    <record id="requisitions_line_view_list_tracking" model="ir.ui.view">
+        <field name="name">requisitions.line.view.list.tracking</field>
+        <field name="model">requisitions.line</field>
+        <field name="arch" type="xml">
+            <list string="Seguimiento de Líneas" create="false" edit="false">
+                <field name="sequence_number" string="#"/>
+                <field name="line_type" widget="badge"
+                       decoration-info="line_type == 'material'"
+                       decoration-primary="line_type == 'tool'"
+                       decoration-warning="line_type == 'equipment'"
+                       decoration-success="line_type == 'service'"/>
+                <field name="product_id"/>
+                <field name="product_qty"/>
+                <field name="product_uom_id"/>
+                <field name="qty_allocated_stock" optional="show"/>
+                <field name="qty_allocated_purchase" optional="show"/>
+                <field name="qty_done" optional="show"/>
+                <field name="qty_pending" optional="show"/>
+                <field name="qty_cancelled" optional="hide"/>
+                <field name="custody_state" widget="badge" optional="show"
+                       decoration-info="custody_state == 'in_custody'"
+                       decoration-success="custody_state == 'returned'"
+                       decoration-muted="custody_state == 'none'"/>
+                <field name="line_state" widget="badge"
+                       decoration-info="line_state in ('draft', 'pending')"
+                       decoration-warning="line_state in ('partial_assigned', 'partially_done')"
+                       decoration-primary="line_state == 'assigned'"
+                       decoration-success="line_state == 'done'"
+                       decoration-muted="line_state == 'cancel'"/>
+                <field name="priority" widget="priority" optional="show"/>
+                <field name="note" optional="show"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Vista de Búsqueda y Agrupadores de Líneas -->
+    <record id="requisitions_line_view_search" model="ir.ui.view">
+        <field name="name">requisitions.line.view.search</field>
+        <field name="model">requisitions.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="product_id"/>
+                <field name="requisition_id"/>
+                <field name="line_type"/>
+                <field name="line_state"/>
+                <separator/>
+                <filter name="filter_pending" string="Pendientes" domain="[('line_state', 'in', ('draft', 'pending'))]"/>
+                <filter name="filter_in_progress" string="En Proceso / Asignadas" domain="[('line_state', 'in', ('partial_assigned', 'assigned', 'partially_done'))]"/>
+                <filter name="filter_done" string="Suministradas" domain="[('line_state', '=', 'done')]"/>
+                <filter name="filter_in_custody" string="En Resguardo" domain="[('custody_state', '=', 'in_custody')]"/>
+                <group>
+                    <filter name="group_by_line_type" string="Tipo de Partida" domain="[]" context="{'group_by': 'line_type'}"/>
+                    <filter name="group_by_line_state" string="Estado de Línea" domain="[]" context="{'group_by': 'line_state'}"/>
+                    <filter name="group_by_product" string="Producto" domain="[]" context="{'group_by': 'product_id'}"/>
+                    <filter name="group_by_custody_state" string="Estado de Resguardo" domain="[]" context="{'group_by': 'custody_state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

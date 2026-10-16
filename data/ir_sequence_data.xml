@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="seq_requisitions" model="ir.sequence">
+            <field name="name">Secuencia de Requisiciones</field>
+            <field name="code">requisitions</field>
+            <field name="prefix">REQ-</field>
+            <field name="padding">5</field>
+            <field name="company_id" eval="False"/>
+        </record>
+        <record id="seq_requisition_supply_request" model="ir.sequence">
+            <field name="name">Secuencia de Solicitud de Suministro</field>
+            <field name="code">requisition.supply.request</field>
+            <field name="prefix">SR-</field>
+            <field name="padding">4</field>
+            <field name="company_id" eval="False"/>
+        </record>
+    </data>
+</odoo>

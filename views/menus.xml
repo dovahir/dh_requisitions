@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <menuitem id="menu_requisitions_root"
+                  name="Requisiciones"
+                  web_icon="dh_requisitions,static/description/icon.png"
+                  groups="dh_requisitions.group_requisitions_user"/>
+                  
+        <menuitem id="menu_requisitions_main"
+                  name="Requisiciones"
+                  parent="menu_requisitions_root"
+                  action="action_requisitions"
+                  sequence="10"/>
+
+        <menuitem id="menu_requisition_supply_request_main"
+                  name="Solicitudes de Suministro"
+                  parent="menu_requisitions_root"
+                  action="action_requisition_supply_request"
+                  sequence="20"/>
+
+        <menuitem id="menu_requisition_purchase_request_line_main"
+                  name="Solicitudes de Compra"
+                  parent="menu_requisitions_root"
+                  action="action_requisition_purchase_request_line"
+                  sequence="30"/>
+
+        <!-- Submenú Configuración -->
+        <menuitem id="menu_requisitions_config"
+                  name="Configuración"
+                  parent="menu_requisitions_root"
+                  groups="dh_requisitions.group_requisitions_manager"
+                  sequence="90"/>
+
+        <menuitem id="menu_requisitions_settings"
+                  name="Ajustes"
+                  parent="menu_requisitions_config"
+                  action="action_dh_requisitions_config_settings"
+                  groups="dh_requisitions.group_requisitions_manager"
+                  sequence="10"/>
+
+        <menuitem id="menu_requisitions_category"
+                  name="Categorías de Productos"
+                  parent="menu_requisitions_config"
+                  action="product.product_category_action_form"
+                  sequence="20"/>
+
+        <menuitem id="menu_requisitions_warehouse_setup"
+                  name="Configurar Rutas de Suministro"
+                  parent="menu_requisitions_config"
+                  action="action_requisition_warehouse_setup_wizard"
+                  groups="dh_requisitions.group_requisitions_manager"
+                  sequence="30"/>
+
+        <!-- ============================================================= -->
+        <!-- MENÚS EN MÓDULO DE INVENTARIO (OPERACIONES > SUMINISTROS)    -->
+        <!-- ============================================================= -->
+        <menuitem id="menu_stock_supplies_category"
+                  name="Suministrar a Obras"
+                  parent="stock.menu_stock_warehouse_mgmt"
+                  groups="dh_requisitions.group_requisitions_user"
+                  sequence="10"/>
+
+        <menuitem id="menu_stock_requisition_supply_request"
+                  name="Solicitudes de Suministro"
+                  parent="menu_stock_supplies_category"
+                  action="action_requisition_supply_request"
+                  groups="dh_requisitions.group_requisitions_user"
+                  sequence="10"/>
+    </data>
+</odoo>

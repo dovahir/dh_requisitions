@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- ============================================================= -->
+        <!-- PRIVILEGIO Y GRUPOS DE SEGURIDAD (ODOO 19)                    -->
+        <!-- ============================================================= -->
+
+        <!-- Privilegio Requisiciones dentro de la categoría nativa -->
+        <record id="res_groups_privilege_requisitions" model="res.groups.privilege">
+            <field name="name">Requisiciones</field>
+            <field name="category_id" ref="base.module_category_supply_chain"/>
+        </record>
+
+        <!-- 1. Grupo: Usuario -->
+        <record id="group_requisitions_user" model="res.groups">
+            <field name="name">Usuario</field>
+            <field name="privilege_id" ref="res_groups_privilege_requisitions"/>
+            <field name="comment">Permite visualizar y crear requisiciones de productos y servicios.</field>
+        </record>
+
+        <!-- 2. Grupo: Aprobador -->
+        <record id="group_requisitions_approver" model="res.groups">
+            <field name="name">Aprobador</field>
+            <field name="privilege_id" ref="res_groups_privilege_requisitions"/>
+            <field name="implied_ids" eval="[(4, ref('group_requisitions_user'))]"/>
+            <field name="comment">Permite aprobar requisiciones además de crearlas y consultarlas.</field>
+        </record>
+
+        <!-- 3. Grupo: Administrador -->
+        <record id="group_requisitions_manager" model="res.groups">
+            <field name="name">Administrador</field>
+            <field name="privilege_id" ref="res_groups_privilege_requisitions"/>
+            <field name="implied_ids" eval="[(4, ref('group_requisitions_approver'))]"/>
+            <field name="comment">Acceso total a la gestión de requisiciones (sin permiso para eliminarlas).</field>
+        </record>
+
+        <!-- ============================================================= -->
+        <!-- REGLAS DE REGISTRO (MULTI-COMPAÑÍA - GLOBALES)               -->
+        <!-- ============================================================= -->
+        <record id="requisitions_comp_rule" model="ir.rule">
+            <field name="name">Requisiciones Multi-Compañía</field>
+            <field name="model_id" ref="model_requisitions"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="requisitions_line_comp_rule" model="ir.rule">
+            <field name="name">Línea de Requisición Multi-Compañía</field>
+            <field name="model_id" ref="model_requisitions_line"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="requisition_supply_request_comp_rule" model="ir.rule">
+            <field name="name">Solicitud de Suministro Multi-Compañía</field>
+            <field name="model_id" ref="model_requisition_supply_request"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="requisition_supply_request_line_comp_rule" model="ir.rule">
+            <field name="name">Línea de Solicitud de Suministro Multi-Compañía</field>
+            <field name="model_id" ref="model_requisition_supply_request_line"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="requisition_purchase_request_line_comp_rule" model="ir.rule">
+            <field name="name">Línea de Solicitud de Compra Multi-Compañía</field>
+            <field name="model_id" ref="model_requisition_purchase_request_line"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <!-- ============================================================= -->
+        <!-- REGLAS DE REGISTRO POR GRUPO (DEPARTAMENTO Y ESTADO)         -->
+        <!-- ============================================================= -->
+
+        <!-- 1. Reglas para Requisiciones de Cabecera -->
+        <record id="requisitions_user_department_draft_rule" model="ir.rule">
+            <field name="name">Requisiciones: Empleado Departamento Borrador</field>
+            <field name="model_id" ref="model_requisitions"/>
+            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_user'))]"/>
+            <field name="domain_force">['&amp;', ('state', '=', 'draft'), '|', ('employee_id.user_id', '=', user.id), '&amp;', ('department_id', '!=', False), ('department_id', '=', user.employee_id.department_id.id)]</field>
+        </record>
+
+        <record id="requisitions_approver_manager_rule" model="ir.rule">
+            <field name="name">Requisiciones: Aprobador/Administrador (Compañía Completa)</field>
+            <field name="model_id" ref="model_requisitions"/>
+            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_approver')), (4, ref('dh_requisitions.group_requisitions_manager'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+
+        <!-- 2. Reglas para Líneas de Requisición -->
+        <record id="requisitions_line_user_rule" model="ir.rule">
+            <field name="name">Línea Requisición: Empleado Departamento Borrador</field>
+            <field name="model_id" ref="model_requisitions_line"/>
+            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_user'))]"/>
+            <field name="domain_force">['&amp;', ('requisition_id.state', '=', 'draft'), '|', ('requisition_id.employee_id.user_id', '=', user.id), '&amp;', ('requisition_id.department_id', '!=', False), ('requisition_id.department_id', '=', user.employee_id.department_id.id)]</field>
+        </record>
+
+        <record id="requisitions_line_approver_manager_rule" model="ir.rule">
+            <field name="name">Línea Requisición: Aprobador/Administrador (Compañía Completa)</field>
+            <field name="model_id" ref="model_requisitions_line"/>
+            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_approver')), (4, ref('dh_requisitions.group_requisitions_manager'))]"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+        </record>
+    </data>
+</odoo>

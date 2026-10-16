@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================= -->
+    <!-- EXTENSIÓN: Trazabilidad y Enlaces Bidireccionales en Albaranes   -->
+    <!-- ================================================================= -->
+    <record id="view_picking_form_inherit_dh_requisitions" model="ir.ui.view">
+        <field name="name">stock.picking.view.form.inherit.dh.requisitions</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <field name="supply_request_id" invisible="1"/>
+                <field name="source_transfer_id" invisible="1"/>
+                <field name="reception_picking_count" invisible="1"/>
+
+                <!-- Enlace al albarán de despacho de origen (para recepciones de obra) -->
+                <button name="action_open_source_transfer"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-arrow-circle-left"
+                        invisible="not source_transfer_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Envío</span>
+                        <span class="o_stat_text">Origen</span>
+                    </div>
+                </button>
+
+                <!-- Enlace a las recepciones generadas en obra (para envíos de base) -->
+                <button name="action_view_reception_pickings"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="fa-truck"
+                        invisible="reception_picking_count == 0">
+                    <field name="reception_picking_count" widget="statinfo" string="Recepciones"/>
+                </button>
+
+                <!-- Enlace a la Solicitud de Suministro -->
+                <button name="action_open_supply_request"
+                        type="object"
+                        class="oe_stat_button"
+                        icon="oi-view-list"
+                        invisible="not supply_request_id">
+                    <div class="o_stat_info">
+                        <span class="o_stat_text">Solicitud de</span>
+                        <span class="o_stat_text">Suministro</span>
+                    </div>
+                </button>
+            </xpath>
+        </field>
+    </record>
+</odoo>

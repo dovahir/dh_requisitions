@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Vista List (Árbol) -->
+    <record id="requisitions_view_list" model="ir.ui.view">
+        <field name="name">requisitions.view.list</field>
+        <field name="model">requisitions</field>
+        <field name="arch" type="xml">
+            <list string="Requisiciones"
+                  decoration-muted="state == 'cancel'"
+                  decoration-danger="state == 'rejected'"
+                  decoration-warning="state in ('to_approve', 'partially_done')"
+                  decoration-info="state == 'draft'"
+                  decoration-success="state == 'done'">
+                <field name="can_edit_lines" column_invisible="True"/>
+                <field name="priority" widget="priority" optional="show" nolabel="1" readonly="not can_edit_lines"/>
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="department_id" optional="show"/>
+                <field name="date_created"/>
+                <field name="date_required"/>
+                <field name="warehouse_id"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state in ('to_approve', 'partially_done')"
+                       decoration-primary="state in ('approved', 'in_progress')"
+                       decoration-success="state == 'done'"
+                       decoration-muted="state == 'cancel'"
+                       decoration-danger="state == 'rejected'"/>
+                <button name="action_view_lines_tracking" string="Seguimiento" type="object"
+                        icon="fa-tasks" class="btn btn-sm btn-outline-primary"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Vista Formulario Principal -->
+    <record id="requisitions_view_form" model="ir.ui.view">
+        <field name="name">requisitions.view.form</field>
+        <field name="model">requisitions</field>
+        <field name="arch" type="xml">
+            <form string="Requisición">
+                <header>
+                    <button name="action_confirm" string="Solicitar Aprobación" type="object"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_approve" string="Aprobar" type="object"
+                            class="btn-primary" invisible="state != 'to_approve'"
+                            groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
+                    <button name="action_reject_wizard" string="Rechazar" type="object"
+                            class="btn btn-secondary" invisible="state != 'to_approve'"
+                            groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
+                    <button name="action_cancel" string="Cancelar" type="object"
+                            invisible="state != 'draft'"/>
+                    <button name="action_draft" string="Volver a Borrador" type="object"
+                            invisible="state not in ('cancel', 'rejected')"/>
+                    <!-- Botones operativos en estado aprobado / en proceso ordenados -->
+                    <button name="action_open_delivery_wizard" string="Entregar Productos" type="object"
+                            class="btn-primary"
+                            invisible="state not in ('approved', 'in_progress', 'partially_done') or not has_deliverable_products"
+                            groups="dh_requisitions.group_requisitions_manager"/>
+                    <button name="action_open_supply_request_wizard" string="Solicitar Suministro" type="object"
+                            class="btn-primary"
+                            invisible="state not in ('approved', 'in_progress', 'partially_done') or not is_not_base_warehouse or not has_deliverable_products"/>
+                    <button name="action_create_purchase_request" string="Solicitar Compra" type="object"
+                            class="btn btn-secondary" invisible="state not in ('approved', 'in_progress', 'partially_done')"/>
+                    <button name="action_create_service_rfq" string="Crear RFQ de Servicios" type="object"
+                            class="btn-primary"
+                            invisible="state not in ('approved', 'in_progress') or not has_services"
+                            groups="purchase.group_purchase_manager"/>
+                    <button name="action_open_cancel_wizard" string="Cancelar" type="object"
+                            invisible="state not in ('approved', 'in_progress', 'partially_done')"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,approved,in_progress,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_pickings" type="object"
+                                class="oe_stat_button" icon="fa-truck"
+                                invisible="picking_count == 0">
+                            <field name="picking_count" widget="statinfo" string="Entregas"/>
+                        </button>
+                        <button name="action_view_purchase_orders" type="object"
+                                class="oe_stat_button" icon="fa-credit-card"
+                                invisible="purchase_order_count == 0">
+                            <field name="purchase_order_count" widget="statinfo" string="Compras / RFQ"/>
+                        </button>
+                        <button name="action_view_purchase_request_lines" type="object"
+                                class="oe_stat_button" icon="fa-shopping-cart"
+                                invisible="purchase_request_count == 0">
+                            <field name="purchase_request_count" widget="statinfo" string="Soli. Compra"/>
+                        </button>
+                        <button name="action_view_supply_requests" type="object"
+                                class="oe_stat_button" icon="fa-exchange"
+                                invisible="supply_request_count == 0">
+                            <field name="supply_request_count" widget="statinfo" string="Soli. Suministro"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                        <field name="can_edit_lines" invisible="1"/>
+                        <field name="has_services" invisible="1"/>
+                        <field name="has_deliverable_products" invisible="1"/>
+                        <field name="is_not_base_warehouse" invisible="1"/>
+                    </div>
+                    <group>
+                        <!-- Grupo: Datos de Requisición -->
+                        <group string="Datos de Requisición" name="requisition_data">
+                            <field name="employee_id" readonly="not can_edit_lines"
+                                   options="{'no_create': True, 'no_create_edit': True}"/>
+                            <field name="department_id"/>
+                            <field name="user_id" readonly="not can_edit_lines"
+                                   options="{'no_create': True, 'no_create_edit': True}"
+                                   required="1"/>
+                            <field name="priority" widget="priority" readonly="not can_edit_lines"/>
+                        </group>
+                        <!-- Grupo: Destino -->
+                        <group string="Destino" name="destination_data">
+                            <field name="date_required" readonly="not can_edit_lines"/>
+                            <field name="company_id" groups="base.group_multi_company" readonly="not can_edit_lines"
+                                   options="{'no_create': True, 'no_create_edit': True}"/>
+                            <field name="warehouse_id" readonly="not can_edit_lines"
+                                   options="{'no_create': True, 'no_create_edit': True}"
+                                   required="1"/>
+                        </group>
+                    </group>
+
+                    <!-- Grupo: Otra información (Restringido a Aprobadores y Administradores) -->
+                    <group string="Otra información" name="other_info"
+                           groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager">
+                        <group>
+                            <field name="create_uid" string="Elaboró" options="{'no_open': True}"/>
+                            <field name="approved_by_id" invisible="not approved_by_id" options="{'no_open': True}"/>
+                            <field name="rejected_by_id" invisible="not rejected_by_id" options="{'no_open': True}"/>
+                            <field name="cancelled_by_id" invisible="not cancelled_by_id" options="{'no_open': True}"/>
+                        </group>
+                        <group>
+                            <field name="date_created" string="Fecha de Creación"/>
+                            <field name="date_approved" string="Fecha de Aprobación" invisible="not date_approved"/>
+                            <field name="date_rejected" string="Fecha de Rechazo" invisible="not date_rejected"/>
+                            <field name="date_cancelled" string="Fecha de Cancelación" invisible="not date_cancelled"/>
+                            <field name="date_start_tracking" invisible="not date_start_tracking"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <!-- Pestaña 1: Materiales -->
+                        <page string="Materiales" name="materials_page"
+                              invisible="state != 'draft' and not material_line_ids">
+                            <field name="material_line_ids" readonly="not can_edit_lines"
+                                   context="{'default_line_type': 'material', 'default_priority': priority}">
+                                <list editable="bottom">
+                                    <field name="line_type" column_invisible="1"/>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="sequence_number" readonly="1"/>
+                                    <field name="priority" widget="priority" optional="show"/>
+                                    <field name="product_id"
+                                           options="{'no_create': True, 'no_create_edit': True}"
+                                           domain="[('categ_id.requisition_type', '=', 'material'), ('categ_id.allow_requisition', '!=', False)]"/>
+                                    <field name="product_qty"/>
+                                    <field name="qty_done" readonly="1" optional="hide"/>
+                                    <field name="qty_pending" readonly="1" optional="hide"/>
+                                    <field name="qty_cancelled" readonly="1" optional="hide"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="line_state" widget="badge" optional="show"
+                                            decoration-info="line_state in ('draft', 'pending')"
+                                            decoration-warning="line_state in ('partial_assigned', 'partially_done')"
+                                            decoration-primary="line_state == 'assigned'"
+                                            decoration-success="line_state == 'done'"
+                                            decoration-muted="line_state == 'cancel'"/>
+                                    <field name="note"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- Pestaña 2: Herramientas -->
+                        <page string="Herramientas" name="tools_page"
+                              invisible="state != 'draft' and not tool_line_ids">
+                            <field name="tool_line_ids" readonly="not can_edit_lines"
+                                   context="{'default_line_type': 'tool', 'default_priority': priority}">
+                                <list editable="bottom">
+                                    <field name="line_type" column_invisible="1"/>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="sequence_number" readonly="1"/>
+                                    <field name="priority" widget="priority" optional="show"/>
+                                    <field name="product_id"
+                                           options="{'no_create': True, 'no_create_edit': True}"
+                                           domain="[('categ_id.requisition_type', '=', 'tool'), ('categ_id.allow_requisition', '!=', False)]"/>
+                                    <field name="product_qty"/>
+                                    <field name="qty_done" readonly="1" optional="hide"/>
+                                    <field name="qty_pending" readonly="1" optional="hide"/>
+                                    <field name="qty_cancelled" readonly="1" optional="hide"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="custody_state" widget="badge" optional="show"
+                                           decoration-info="custody_state == 'in_custody'"
+                                           decoration-success="custody_state == 'returned'"
+                                           decoration-muted="custody_state == 'none'"/>
+                                    <field name="line_state" widget="badge" optional="show"
+                                            decoration-info="line_state in ('draft', 'pending')"
+                                            decoration-warning="line_state in ('partial_assigned', 'partially_done')"
+                                            decoration-primary="line_state == 'assigned'"
+                                            decoration-success="line_state == 'done'"
+                                            decoration-muted="line_state == 'cancel'"/>
+                                    <field name="note"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- Pestaña 3: Equipos -->
+                        <page string="Equipos" name="equipments_page"
+                              invisible="state != 'draft' and not equipment_line_ids">
+                            <field name="equipment_line_ids" readonly="not can_edit_lines"
+                                   context="{'default_line_type': 'equipment', 'default_priority': priority}">
+                                <list editable="bottom">
+                                    <field name="line_type" column_invisible="1"/>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="sequence_number" readonly="1"/>
+                                    <field name="priority" widget="priority" optional="show"/>
+                                    <field name="product_id"
+                                           options="{'no_create': True, 'no_create_edit': True}"
+                                           domain="[('categ_id.requisition_type', '=', 'equipment'), ('categ_id.allow_requisition', '!=', False)]"/>
+                                    <field name="product_qty"/>
+                                    <field name="qty_done" readonly="1" optional="hide"/>
+                                    <field name="qty_pending" readonly="1" optional="hide"/>
+                                    <field name="qty_cancelled" readonly="1" optional="hide"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="custody_state" widget="badge" optional="show"
+                                           decoration-info="custody_state == 'in_custody'"
+                                           decoration-success="custody_state == 'returned'"
+                                           decoration-muted="custody_state == 'none'"/>
+                                    <field name="line_state" widget="badge" optional="show"
+                                            decoration-info="line_state in ('draft', 'pending')"
+                                            decoration-warning="line_state in ('partial_assigned', 'partially_done')"
+                                            decoration-primary="line_state == 'assigned'"
+                                            decoration-success="line_state == 'done'"
+                                            decoration-muted="line_state == 'cancel'"/>
+                                    <field name="note"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- Pestaña 4: Servicios -->
+                        <page string="Servicios" name="services_page"
+                              invisible="state != 'draft' and not service_line_ids">
+                            <field name="service_line_ids" readonly="not can_edit_lines"
+                                   context="{'default_line_type': 'service', 'default_priority': priority}">
+                                <list editable="bottom">
+                                    <field name="line_type" column_invisible="1"/>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="sequence_number" readonly="1"/>
+                                    <field name="priority" widget="priority" optional="show"/>
+                                    <field name="product_id"
+                                           options="{'no_create': True, 'no_create_edit': True}"
+                                           domain="[('categ_id.requisition_type', '=', 'service'), ('categ_id.allow_requisition', '!=', False)]"/>
+                                    <field name="product_qty"/>
+                                    <field name="qty_done" readonly="1" optional="hide"/>
+                                    <field name="qty_pending" readonly="1" optional="hide"/>
+                                    <field name="qty_cancelled" readonly="1" optional="hide"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="line_state" widget="badge" optional="show"
+                                            decoration-info="line_state in ('draft', 'pending')"
+                                            decoration-warning="line_state in ('partial_assigned', 'partially_done')"
+                                            decoration-primary="line_state == 'assigned'"
+                                            decoration-success="line_state == 'done'"
+                                            decoration-muted="line_state == 'cancel'"/>
+                                    <field name="note"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                    <group name="note_group">
+                        <field name="notes" placeholder="Comentarios o notas adicionales..."
+                               readonly="not can_edit_lines"/>
+                    </group>
+                </sheet>
+                <!-- Chatter de Odoo 19 -->
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vista Kanban -->
+    <record id="requisitions_view_kanban" model="ir.ui.view">
+        <field name="name">requisitions.view.kanban</field>
+        <field name="model">requisitions</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state">
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="date_required"/>
+                <field name="state"/>
+                <field name="priority"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="oe_kanban_global_click">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <strong><field name="name"/></strong>
+                                <field name="state" widget="badge"/>
+                            </div>
+                            <div>
+                                <i class="fa fa-user me-1" title="Solicita"/>
+                                <field name="employee_id"/>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center text-muted small mt-1">
+                                <span>
+                                    <i class="fa fa-calendar me-1" title="Fecha Requerida"/>
+                                    <field name="date_required"/>
+                                </span>
+                                <field name="priority" widget="priority"/>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Vista Búsqueda -->
+    <record id="requisitions_view_search" model="ir.ui.view">
+        <field name="name">requisitions.view.search</field>
+        <field name="model">requisitions</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="department_id"/>
+                <field name="user_id"/>
+                <field name="create_uid" string="Elaboró"/>
+                <field name="warehouse_id"/>
+                <field name="priority"/>
+                <separator/>
+                <filter name="filter_my_requisitions" string="Mis Requisiciones" domain="['|', ('employee_id.user_id', '=', uid), ('create_uid', '=', uid)]"/>
+                <filter name="filter_open" string="Activas" domain="[('state', 'not in', ('done', 'cancel', 'rejected'))]"/>
+                <separator/>
+                <filter name="filter_draft" string="Borrador" domain="[('state', '=', 'draft')]"/>
+                <filter name="filter_to_approve" string="Por Aprobar" domain="[('state', '=', 'to_approve')]"/>
+                <filter name="filter_approved" string="Aprobadas" domain="[('state', '=', 'approved')]"/>
+                <filter name="filter_in_progress" string="En Proceso" domain="[('state', '=', 'in_progress')]"/>
+                <filter name="filter_partially_done" string="Parcialmente Suministrado" domain="[('state', '=', 'partially_done')]"/>
+                <filter name="filter_done" string="Suministrado" domain="[('state', '=', 'done')]"/>
+                <filter name="filter_cancel" string="Canceladas" domain="[('state', '=', 'cancel')]"/>
+                <filter name="filter_rejected" string="Rechazadas" domain="[('state', '=', 'rejected')]"/>
+                <group>
+                    <filter name="group_by_employee" string="Solicita" domain="[]" context="{'group_by': 'employee_id'}"/>
+                    <filter name="group_by_department" string="Departamento" domain="[]" context="{'group_by': 'department_id'}"/>
+                    <filter name="group_by_create_by" string="Elaboró" domain="[]" context="{'group_by': 'create_uid'}"/>
+                    <filter name="group_by_warehouse" string="Almacén" domain="[]" context="{'group_by': 'warehouse_id'}"/>
+                    <filter name="group_by_state" string="Estado" domain="[]" context="{'group_by': 'state'}"/>
+                    <filter name="group_by_priority" string="Prioridad" domain="[]" context="{'group_by': 'priority'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

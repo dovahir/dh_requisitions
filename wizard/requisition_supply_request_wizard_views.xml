@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_requisition_supply_request_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.supply.request.wizard.form</field>
+        <field name="model">requisition.supply.request.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Solicitar Suministro (Base a Obra)">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        Seleccione las partidas y cantidades requeridas para surtir desde el almacén central hacia la obra. Puede vincularlas a una Solicitud de Suministro (SR) activa o generar una nueva automáticamente.
+                    </div>
+                    <group>
+                        <group string="Ruta de Suministro">
+                            <field name="requisition_id"/>
+                            <field name="warehouse_dest_id"/>
+                            <field name="warehouse_origin_id" options="{'no_create': True}"/>
+                        </group>
+                        <group string="Destino de las Partidas">
+                            <field name="supply_request_id" options="{'no_create': True}"/>
+                            <field name="notes" placeholder="Observaciones o notas adicionales..."/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Partidas a Suministrar" name="lines_page">
+                            <field name="line_ids">
+                                <list editable="bottom" create="0" delete="0">
+                                    <field name="requisition_line_id" column_invisible="1"/>
+                                    <field name="selected" widget="boolean_toggle"/>
+                                    <field name="product_id"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="qty_pending"/>
+                                    <field name="product_qty"/>
+                                    <field name="notes"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" string="Agregar a Solicitud de Suministro" type="object" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_requisition_supply_request_wizard" model="ir.actions.act_window">
+        <field name="name">Solicitar Suministro</field>
+        <field name="res_model">requisition.supply.request.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

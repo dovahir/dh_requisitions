@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ================================================================= -->
+    <!-- EXTENSIÓN: Formulario de Tipos de Operación (Stock Picking Type)  -->
+    <!-- ================================================================= -->
+    <record id="view_picking_type_form_inherit_dh_requisitions" model="ir.ui.view">
+        <field name="name">stock.picking.type.form.inherit.dh.requisitions</field>
+        <field name="model">stock.picking.type</field>
+        <field name="inherit_id" ref="stock.view_picking_type_form"/>
+        <field name="arch" type="xml">
+            <!-- Ubicar check de requisiciones en información general -->
+            <xpath expr="//field[@name='warehouse_id']" position="after">
+                <field name="is_requisition_operation"
+                       widget="boolean_toggle"
+                       invisible="code != 'internal'"/>
+            </xpath>
+
+            <!-- Condicionar visibilidad, obligatoriedad y dominio de recepción predeterminada -->
+            <xpath expr="//field[@name='default_dest_picking_type']" position="attributes">
+                <attribute name="invisible">not is_requisition_operation</attribute>
+                <attribute name="required">is_requisition_operation</attribute>
+                <attribute name="domain">[('code', '=', 'internal')]</attribute>
+                <attribute name="options">{'no_create': True, 'no_open': True}</attribute>
+                <attribute name="help">Tipo de operación interna de recepción en el almacén de destino (obra).</attribute>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ================================================================= -->
+    <!-- EXTENSIÓN: Vista Lista de Tipos de Operación                     -->
+    <!-- ================================================================= -->
+    <record id="view_picking_type_tree_inherit_dh_requisitions" model="ir.ui.view">
+        <field name="name">stock.picking.type.list.inherit.dh.requisitions</field>
+        <field name="model">stock.picking.type</field>
+        <field name="inherit_id" ref="stock.view_picking_type_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='warehouse_id']" position="after">
+                <field name="is_requisition_operation" optional="show" widget="boolean_toggle"/>
+                <field name="default_dest_picking_type" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ================================================================= -->
+    <!-- EXTENSIÓN: Vista Búsqueda de Tipos de Operación                  -->
+    <!-- ================================================================= -->
+    <record id="view_pickingtype_filter_inherit_dh_requisitions" model="ir.ui.view">
+        <field name="name">stock.picking.type.filter.inherit.dh.requisitions</field>
+        <field name="model">stock.picking.type</field>
+        <field name="inherit_id" ref="stock.view_pickingtype_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//filter[@name='favorites']" position="after">
+                <filter name="filter_requisition_operation"
+                        string="Para Requisiciones"
+                        domain="[('is_requisition_operation', '=', True)]"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- ================================================================= -->
+    <!-- ACCIÓN: Tipos de Operación para Requisiciones                     -->
+    <!-- ================================================================= -->
+    <record id="action_stock_picking_type_requisitions" model="ir.actions.act_window">
+        <field name="name">Tipos de Operación</field>
+        <field name="res_model">stock.picking.type</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="stock.view_pickingtype_filter"/>
+        <field name="context">{'search_default_filter_requisition_operation': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Configure los tipos de operación para Requisiciones
+            </p>
+            <p>
+                Marque el tipo de traslado interno del almacén base como 'Operación para Requisiciones' y defina su recepción interna en obra predeterminada.
+            </p>
+        </field>
+    </record>
+</odoo>

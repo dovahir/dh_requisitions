@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!-- Vista List/Tree de Categorías: Configuración de Requisiciones -->
+    <record id="product_category_list_view_inherit_requisitions" model="ir.ui.view">
+        <field name="name">product.category.list.inherit.requisitions</field>
+        <field name="model">product.category</field>
+        <field name="inherit_id" ref="product.product_category_list_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='display_name']" position="after">
+                <field name="requisition_type"/>
+                <field name="allow_requisition" widget="boolean_toggle"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Vista Formulario de Categorías: Configuración de Requisiciones -->
+    <record id="product_category_form_view_inherit_requisitions" model="ir.ui.view">
+        <field name="name">product.category.form.inherit.requisitions</field>
+        <field name="model">product.category</field>
+        <field name="inherit_id" ref="product.product_category_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Configuración de Requisiciones">
+                    <group>
+                        <field name="requisition_type"/>
+                        <field name="allow_requisition" readonly="not requisition_type"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

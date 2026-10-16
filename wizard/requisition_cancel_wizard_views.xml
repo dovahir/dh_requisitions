@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_requisition_cancel_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.cancel.wizard.form</field>
+        <field name="model">requisition.cancel.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Cancelar Requisición">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        Al cancelar esta requisición se anularán las asignaciones activas de suministro y compras vinculadas.
+                    </div>
+                    <group>
+                        <field name="requisition_id"/>
+                        <field name="reason" placeholder="Especifique el motivo de cancelación de la requisición..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_cancel" string="Confirmar Cancelación" type="object" class="btn-danger"/>
+                    <button string="Descartar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_requisition_cancel_wizard" model="ir.actions.act_window">
+        <field name="name">Cancelar Requisición</field>
+        <field name="res_model">requisition.cancel.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>
