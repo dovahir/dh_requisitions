@@ -238,6 +238,11 @@ class Requisitions(models.Model):
         compute='_compute_purchase_order_ids',
         string='Órdenes de Compra / RFQ'
     )
+    allocation_ids = fields.One2many(
+        'requisition.allocation',
+        'requisition_id',
+        string='Asignaciones de Trazabilidad'
+    )
     purchase_order_count = fields.Integer(
         string='Compras / RFQ',
         compute='_compute_purchase_order_ids'
@@ -552,18 +557,36 @@ class Requisitions(models.Model):
         }
 
     def action_draft(self):
-        """Regresa la requisición a borrador, limpia datos de resolución previa y notifica a documentos abiertos."""
+        """Regresa la requisición a borrador desde estado cancelado, rechazado o aprobado sin flujo en proceso."""
         for rec in self:
+            if rec.state in ('in_progress', 'partially_done', 'done'):
+                raise UserError(_(
+                    "No se puede regresar la requisición '%s' a borrador directamente mientras se encuentre en proceso. "
+                    "Debe cancelarla primero mediante la opción 'Cancelar' y, una vez cancelada, podrá regresarla a borrador."
+                ) % rec.name)
+
             rec.write({
                 'state': 'draft',
+                'approved_by_id': False,
+                'date_approved': False,
                 'rejected_by_id': False,
                 'date_rejected': False,
                 'cancelled_by_id': False,
                 'date_cancelled': False,
             })
-            rec.line_ids._compute_quantities()
 
-            # Notificar en el chatter de documentos vinculados abiertos
+            # Si la requisición estaba cancelada, reactivar el saldo reintegrando las asignaciones canceladas
+            cancelled_allocs = rec.line_ids.allocation_ids.filtered(lambda a: a.state == 'cancel')
+            if cancelled_allocs:
+                cancelled_allocs.write({
+                    'cancel_action': 'reintegrate',
+                    'cancelled_qty': 0.0,
+                })
+
+            rec.line_ids._compute_quantities()
+            rec.line_ids._compute_line_state()
+
+            # Notificar en el chatter de documentos vinculados abiertos si existieran
             msg_reopen = Markup(_(
                 "<strong>Aviso:</strong> La requisición <strong>%s</strong> ha sido regresada a borrador para modificaciones."
             )) % escape(rec.name)
@@ -626,13 +649,14 @@ class Requisitions(models.Model):
                 po_line_vals['note'] = line.note
             po_line = self.env['purchase.order.line'].create(po_line_vals)
 
-            self.env['supply.chain.allocation'].create({
+            self.env['requisition.allocation'].create({
                 'company_id': self.company_id.id,
                 'product_id': line.product_id.id,
                 'product_uom_id': line.product_uom_id.id,
                 'requested_qty': line.qty_pending,
                 'delivered_qty': 0.0,
                 'supply_type': 'consumption',
+                'stage': 'inbound',
                 'purchase_line_id': po_line.id,
                 'requisition_line_id': line.id,
                 'state': 'in_progress',
@@ -689,7 +713,7 @@ class Requisitions(models.Model):
             raise UserError(_("Solo se pueden generar solicitudes de compra para requisiciones aprobadas o en proceso."))
 
         lines_to_buy = self.line_ids.filtered(
-            lambda l: l.qty_pending > 0 and l.line_state not in ('done', 'cancel')
+            lambda l: l._get_qty_unpurchased() > 0 and l.line_state not in ('done', 'cancel')
         )
         if not lines_to_buy:
             raise UserError(_("No hay partidas con saldo pendiente para enviar a compra."))
@@ -704,43 +728,82 @@ class Requisitions(models.Model):
         is_destination_obra = bool(base_wh and self.warehouse_id.id != base_wh.id)
 
         for line in lines_to_buy:
-            pr_line = self.env['requisition.purchase.request.line'].create({
-                'requisition_id': self.id,
-                'requisition_line_id': line.id,
-                'product_id': line.product_id.id,
-                'product_qty': line.qty_pending,
-                'notes': line.note or '',
-                'state': 'pending',
-            })
-            created_lines |= pr_line
+            qty_to_buy = line._get_qty_unpurchased()
+            # Buscar asignaciones activas de suministro de la partida que aún no tienen compra
+            existing_supply_allocs = line.allocation_ids.filtered(
+                lambda a: a.supply_request_line_id and not a.purchase_request_line_id and not a.purchase_line_id and a.state not in ('cancel', 'done')
+            )
 
-            supply_line = False
-            if is_destination_obra and line.line_type != 'service':
-                # Crear partida en el pool de Pendientes de Envío (request_id=False) sin duplicar allocation
-                supply_line = self.env['requisition.supply.request.line'].with_context(skip_auto_allocation=True).create({
-                    'request_id': False,
+            remaining_to_buy = qty_to_buy
+            for s_alloc in existing_supply_allocs:
+                if remaining_to_buy <= 0:
+                    break
+                alloc_qty = min(s_alloc.requested_qty, remaining_to_buy)
+                pr_line = self.env['requisition.purchase.request.line'].create({
+                    'requisition_id': self.id,
                     'requisition_line_id': line.id,
                     'product_id': line.product_id.id,
-                    'product_qty': line.qty_pending,
-                    'warehouse_dest_id': self.warehouse_id.id,
-                    'warehouse_origin_id': base_wh.id if base_wh else False,
+                    'product_qty': alloc_qty,
                     'notes': line.note or '',
+                    'state': 'pending',
                 })
+                created_lines |= pr_line
+                s_alloc.write({
+                    'purchase_request_line_id': pr_line.id,
+                    'stage': 'inbound',
+                    'state': 'in_progress',
+                })
+                pr_line.allocation_id = s_alloc.id
+                remaining_to_buy -= alloc_qty
 
-            supply_type = line.supply_type or ('resg' if line.line_type in ('tool', 'equipment') else 'consumption')
-            alloc = self.env['supply.chain.allocation'].create({
-                'company_id': self.company_id.id,
-                'product_id': line.product_id.id,
-                'product_uom_id': line.product_uom_id.id,
-                'requested_qty': line.qty_pending,
-                'delivered_qty': 0.0,
-                'supply_type': supply_type,
-                'purchase_request_line_id': pr_line.id,
-                'supply_request_line_id': supply_line.id if supply_line else False,
-                'requisition_line_id': line.id,
-                'state': 'in_progress',
-            })
-            pr_line.allocation_id = alloc.id
+                if s_alloc.supply_request_line_id.request_id:
+                    s_alloc.supply_request_line_id.request_id.message_post(
+                        body=Markup(_("Se vinculó la Solicitud de Compra para la partida <strong>%s</strong> (Requisición %s).")) % (
+                            escape(line.product_id.display_name),
+                            escape(self.name)
+                        ),
+                        subtype_xmlid="mail.mt_note"
+                    )
+
+            if remaining_to_buy > 0:
+                pr_line = self.env['requisition.purchase.request.line'].create({
+                    'requisition_id': self.id,
+                    'requisition_line_id': line.id,
+                    'product_id': line.product_id.id,
+                    'product_qty': remaining_to_buy,
+                    'notes': line.note or '',
+                    'state': 'pending',
+                })
+                created_lines |= pr_line
+
+                supply_line = False
+                if is_destination_obra and line.line_type != 'service':
+                    # Crear partida en el pool de Pendientes de Envío (request_id=False) sin duplicar allocation
+                    supply_line = self.env['requisition.supply.request.line'].with_context(skip_auto_allocation=True).create({
+                        'request_id': False,
+                        'requisition_line_id': line.id,
+                        'product_id': line.product_id.id,
+                        'product_qty': remaining_to_buy,
+                        'warehouse_dest_id': self.warehouse_id.id,
+                        'warehouse_origin_id': base_wh.id if base_wh else False,
+                        'notes': line.note or '',
+                    })
+
+                supply_type = line.supply_type or ('resg' if line.line_type in ('tool', 'equipment') else 'consumption')
+                alloc = self.env['requisition.allocation'].create({
+                    'company_id': self.company_id.id,
+                    'product_id': line.product_id.id,
+                    'product_uom_id': line.product_uom_id.id,
+                    'requested_qty': remaining_to_buy,
+                    'delivered_qty': 0.0,
+                    'supply_type': supply_type,
+                    'stage': 'inbound',
+                    'purchase_request_line_id': pr_line.id,
+                    'supply_request_line_id': supply_line.id if supply_line else False,
+                    'requisition_line_id': line.id,
+                    'state': 'in_progress',
+                })
+                pr_line.allocation_id = alloc.id
 
         if self.state == 'approved':
             self.action_in_progress()
@@ -806,7 +869,7 @@ class Requisitions(models.Model):
         if not self.is_not_base_warehouse:
             raise UserError(_("La solicitud de suministro aplica únicamente cuando el almacén de la requisición es diferente al almacén origen."))
         eligible_lines = self.line_ids.filtered(
-            lambda l: l.line_type != 'service' and l.qty_pending > 0 and l.line_state not in ('done', 'cancel')
+            lambda l: l.line_type != 'service' and l._get_qty_unsupplied() > 0 and l.line_state not in ('done', 'cancel')
         )
         if not eligible_lines:
             raise UserError(_("No hay partidas pendientes de suministrar en esta requisición."))

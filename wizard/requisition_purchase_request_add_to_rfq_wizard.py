@@ -167,27 +167,35 @@ class RequisitionPurchaseRequestAddToRfqWizard(models.TransientModel):
                 po_line = self.env['purchase.order.line'].create(po_line_vals)
                 added_po_lines |= po_line
 
-                # Vincular o dividir asignación en supply.chain.allocation
+                # Vincular o dividir asignación en requisition.allocation
                 free_alloc = req_line.allocation_ids.filtered(lambda a: not a.purchase_line_id and a.state != 'cancel')[:1]
                 rounding = req_line.product_uom_id.rounding or 0.01
 
+                # Cantidad del wizard convertida a la UdM de la asignación
+                wiz_qty_in_alloc_uom = wizard_line.product_qty
+                wiz_uom = wizard_line.uom_id or req_line.product_uom_id
+                if free_alloc and wiz_uom and free_alloc.product_uom_id and wiz_uom != free_alloc.product_uom_id:
+                    wiz_qty_in_alloc_uom = wiz_uom._compute_quantity(wizard_line.product_qty, free_alloc.product_uom_id)
+
                 if free_alloc:
-                    diff = float_compare(free_alloc.requested_qty, wizard_line.product_qty, precision_rounding=rounding)
+                    diff = float_compare(free_alloc.requested_qty, wiz_qty_in_alloc_uom, precision_rounding=rounding)
                     if diff <= 0:
-                        free_alloc.write({'purchase_line_id': po_line.id})
+                        free_alloc.write({'purchase_line_id': po_line.id, 'stage': 'inbound'})
                     else:
-                        remainder = free_alloc.requested_qty - wizard_line.product_qty
+                        remainder = free_alloc.requested_qty - wiz_qty_in_alloc_uom
                         free_alloc.write({
-                            'requested_qty': wizard_line.product_qty,
-                            'purchase_line_id': po_line.id
+                            'requested_qty': wiz_qty_in_alloc_uom,
+                            'purchase_line_id': po_line.id,
+                            'stage': 'inbound',
                         })
-                        self.env['supply.chain.allocation'].create({
+                        self.env['requisition.allocation'].create({
                             'company_id': free_alloc.company_id.id,
                             'product_id': free_alloc.product_id.id,
                             'product_uom_id': free_alloc.product_uom_id.id,
                             'requested_qty': remainder,
                             'delivered_qty': 0.0,
                             'supply_type': free_alloc.supply_type,
+                            'stage': 'inbound',
                             'purchase_request_line_id': req_line.id,
                             'requisition_line_id': free_alloc.requisition_line_id.id if free_alloc.requisition_line_id else False,
                             'supply_request_line_id': free_alloc.supply_request_line_id.id if free_alloc.supply_request_line_id else False,
@@ -195,13 +203,14 @@ class RequisitionPurchaseRequestAddToRfqWizard(models.TransientModel):
                         })
                 else:
                     supply_type = req_line.requisition_line_id.supply_type if req_line.requisition_line_id else 'consumption'
-                    self.env['supply.chain.allocation'].create({
+                    self.env['requisition.allocation'].create({
                         'company_id': req_line.company_id.id,
                         'product_id': req_line.product_id.id,
                         'product_uom_id': req_line.product_uom_id.id,
                         'requested_qty': wizard_line.product_qty,
                         'delivered_qty': 0.0,
                         'supply_type': supply_type,
+                        'stage': 'inbound',
                         'purchase_request_line_id': req_line.id,
                         'requisition_line_id': req_line.requisition_line_id.id if req_line.requisition_line_id else False,
                         'purchase_line_id': po_line.id,

@@ -534,8 +534,8 @@ class RequisitionSupplyRequest(models.Model):
                     })
 
     def _sync_supply_chain_allocations(self, delivery_picking):
-        """Vincula los movimientos de entrega con la matriz supply.chain.allocation."""
-        Allocation = self.env['supply.chain.allocation']
+        """Vincula los movimientos de entrega con la matriz requisition.allocation."""
+        Allocation = self.env['requisition.allocation']
         for move in delivery_picking.move_ids:
             req_line = move.supply_request_line_id
             if not req_line:
@@ -564,6 +564,7 @@ class RequisitionSupplyRequest(models.Model):
                     'requested_qty': req_line.product_qty,
                     'delivered_qty': 0.0,
                     'supply_type': supply_type,
+                    'stage': 'inbound',
                     'stock_move_id': move.id,
                     'supply_request_line_id': req_line.id,
                     'requisition_line_id': req_line.requisition_line_id.id if req_line.requisition_line_id else False,

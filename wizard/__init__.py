@@ -10,3 +10,5 @@ from . import requisition_purchase_request_add_to_rfq_wizard
 from . import requisition_supply_request_line_split_wizard
 from . import requisition_supply_request_add_pending_wizard
 from . import requisition_supply_request_assign_pending_wizard
+from . import requisition_allocation_cancel_wizard
+

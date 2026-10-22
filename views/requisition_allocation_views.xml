@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Vista de Lista de Asignaciones -->
+    <record id="view_requisition_allocation_tree" model="ir.ui.view">
+        <field name="name">requisition.allocation.list</field>
+        <field name="model">requisition.allocation</field>
+        <field name="arch" type="xml">
+            <list string="Asignaciones de Suministro" decoration-info="state == 'in_progress'" decoration-success="state == 'done'" decoration-muted="state == 'cancel'">
+                <field name="create_date" string="Fecha"/>
+                <field name="requisition_id"/>
+                <field name="requisition_line_id"/>
+                <field name="product_id"/>
+                <field name="stage" widget="badge"
+                       decoration-warning="stage == 'inbound'"
+                       decoration-success="stage == 'outbound'"/>
+                <field name="requested_qty" string="Asignado"/>
+                <field name="delivered_qty" string="Entregado"/>
+                <field name="qty_returned" string="Devuelto" optional="hide"/>
+                <field name="open_qty" string="En Tránsito / Abierto"/>
+                <field name="cancelled_qty" string="Cancelado"/>
+                <field name="product_uom_id" string="UdM"/>
+                <field name="supply_type" widget="badge" optional="hide"/>
+                <field name="supply_request_id" optional="show"/>
+                <field name="supply_request_line_id" optional="hide"/>
+                <field name="purchase_request_line_id" optional="show"/>
+                <field name="parent_allocation_id" optional="show" string="Abastecimiento Origen"/>
+                <field name="stock_move_id" optional="show"/>
+                <field name="purchase_line_id" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state == 'in_progress'"
+                       decoration-success="state == 'done'"
+                       decoration-muted="state == 'cancel'"/>
+                <button name="action_open_cancel_wizard" string="Cancelar / Cerrar" type="object"
+                        icon="fa-times-circle" invisible="state in ('done', 'cancel')"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Vista de Formulario de Asignación -->
+    <record id="view_requisition_allocation_form" model="ir.ui.view">
+        <field name="name">requisition.allocation.form</field>
+        <field name="model">requisition.allocation</field>
+        <field name="arch" type="xml">
+            <form string="Asignación de Suministro">
+                <header>
+                    <button name="action_open_cancel_wizard" string="Cancelar / Cerrar Saldo" type="object" class="btn-danger" invisible="state in ('done', 'cancel')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,in_progress,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="product_id" string="Producto"/>
+                        <h1>
+                            <field name="product_id" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Cadena de Suministro y Etapa">
+                            <field name="stage" widget="badge"
+                                   decoration-warning="stage == 'inbound'"
+                                   decoration-success="stage == 'outbound'"/>
+                            <field name="parent_allocation_id" readonly="1" invisible="not parent_allocation_id"/>
+                            <field name="supply_type" readonly="1"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="Cantidades y Balance">
+                            <field name="requested_qty" readonly="1"/>
+                            <field name="delivered_qty" readonly="1"/>
+                            <field name="qty_returned" readonly="1"/>
+                            <field name="open_qty" readonly="1"/>
+                            <field name="cancelled_qty" readonly="1"/>
+                            <field name="product_uom_id" readonly="1"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Origen de Demanda">
+                            <field name="requisition_id" readonly="1"/>
+                            <field name="requisition_line_id" readonly="1"/>
+                            <field name="supply_request_id" readonly="1" invisible="not supply_request_id"/>
+                            <field name="supply_request_line_id" readonly="1" invisible="not supply_request_line_id"/>
+                            <field name="purchase_request_line_id" readonly="1" invisible="not purchase_request_line_id"/>
+                        </group>
+                        <group string="Documentos de Cumplimiento">
+                            <field name="stock_move_id" readonly="1" invisible="not stock_move_id"/>
+                            <field name="purchase_stock_move_id" readonly="1" invisible="not purchase_stock_move_id"/>
+                            <field name="purchase_line_id" readonly="1" invisible="not purchase_line_id"/>
+                        </group>
+                    </group>
+                    <notebook invisible="not child_allocation_ids">
+                        <page string="Despachos Físicos Derivados" name="child_allocations">
+                            <field name="child_allocation_ids" readonly="1">
+                                <list decoration-info="state == 'in_progress'" decoration-success="state == 'done'" decoration-muted="state == 'cancel'">
+                                    <field name="create_date" string="Fecha"/>
+                                    <field name="stock_move_id" string="Albarán de Salida"/>
+                                    <field name="requested_qty" string="Cantidad Surtida"/>
+                                    <field name="delivered_qty" string="Recibida por Solicitante"/>
+                                    <field name="product_uom_id" string="UdM"/>
+                                    <field name="state" widget="badge"
+                                           decoration-warning="state == 'in_progress'"
+                                           decoration-success="state == 'done'"
+                                           decoration-muted="state == 'cancel'"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                    <group string="Cancelación" invisible="state != 'cancel' and not cancel_reason">
+                        <field name="cancel_action" readonly="1"/>
+                        <field name="cancel_reason" readonly="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Vista de Búsqueda y Filtros -->
+    <record id="view_requisition_allocation_search" model="ir.ui.view">
+        <field name="name">requisition.allocation.search</field>
+        <field name="model">requisition.allocation</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="requisition_id"/>
+                <field name="product_id"/>
+                <field name="stock_move_id"/>
+                <field name="purchase_line_id"/>
+                <field name="supply_request_id"/>
+                <field name="supply_request_line_id"/>
+                <field name="purchase_request_line_id"/>
+                <field name="parent_allocation_id"/>
+                <separator/>
+                <filter name="stage_inbound" string="Abastecimiento (Compras/Traslados)" domain="[('stage', '=', 'inbound')]"/>
+                <filter name="stage_outbound" string="Despacho al Solicitante" domain="[('stage', '=', 'outbound')]"/>
+                <separator/>
+                <filter name="in_progress" string="En Proceso / Tránsito" domain="[('state', '=', 'in_progress')]"/>
+                <filter name="done" string="Completadas" domain="[('state', '=', 'done')]"/>
+                <filter name="cancelled" string="Canceladas" domain="[('state', '=', 'cancel')]"/>
+                <group>
+                    <filter name="group_stage" string="Etapa" context="{'group_by': 'stage'}"/>
+                    <filter name="group_requisition" string="Requisición" context="{'group_by': 'requisition_id'}"/>
+                    <filter name="group_supply_request" string="Solicitud de Suministro" context="{'group_by': 'supply_request_id'}"/>
+                    <filter name="group_product" string="Producto" context="{'group_by': 'product_id'}"/>
+                    <filter name="group_state" string="Estado" context="{'group_by': 'state'}"/>
+                    <filter name="group_supply_type" string="Tipo de Suministro" context="{'group_by': 'supply_type'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Acción de Ventana para Asignaciones -->
+    <record id="action_requisition_allocation" model="ir.actions.act_window">
+        <field name="name">Asignaciones de Suministro</field>
+        <field name="res_model">requisition.allocation</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_requisition_allocation_search"/>
+        <field name="context">{'search_default_in_progress': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No hay asignaciones de suministro registradas.
+            </p>
+        </field>
+    </record>
+
+</odoo>

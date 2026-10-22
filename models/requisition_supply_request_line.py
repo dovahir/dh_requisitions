@@ -144,19 +144,27 @@ class RequisitionSupplyRequestLine(models.Model):
         compute='_compute_dotation_display'
     )
 
-    # --- Integración con supply.chain.allocation ---
+    # --- Integración con requisition.allocation ---
     allocation_ids = fields.One2many(
-        'supply.chain.allocation',
+        'requisition.allocation',
         'supply_request_line_id',
-        string='Asignaciones de Cadena de Suministro'
+        string='Asignaciones de Requisición'
     )
     allocation_id = fields.Many2one(
-        'supply.chain.allocation',
+        'requisition.allocation',
         string='Asignación Principal',
         compute='_compute_allocation_id',
         store=True,
         readonly=True,
         index=True
+    )
+    purchase_request_line_id = fields.Many2one(
+        'requisition.purchase.request.line',
+        string='Solicitud de Compra Vinculada',
+        compute='_compute_purchase_request_line_id',
+        store=True,
+        readonly=True,
+        help='Partida de Solicitud de Compra vinculada a través de la asignación unificada.'
     )
     qty_in_transit = fields.Float(
         string='En Tránsito',
@@ -256,6 +264,12 @@ class RequisitionSupplyRequestLine(models.Model):
     def _compute_allocation_id(self):
         for line in self:
             line.allocation_id = line.allocation_ids[:1]
+
+    @api.depends('allocation_ids.purchase_request_line_id')
+    def _compute_purchase_request_line_id(self):
+        for line in self:
+            linked_pr = line.allocation_ids.mapped('purchase_request_line_id')
+            line.purchase_request_line_id = linked_pr[:1].id if linked_pr else False
 
     @api.depends(
         'allocation_ids.requested_qty',
@@ -442,21 +456,33 @@ class RequisitionSupplyRequestLine(models.Model):
         if not self.env.context.get('skip_auto_allocation'):
             for rec in created_records:
                 if rec.requisition_line_id and not rec.allocation_ids:
-                    supply_type = rec.requisition_line_id.supply_type or (
-                        'resg' if rec.requisition_line_id.line_type in ('tool', 'equipment') else 'consumption'
+                    # Buscar si ya existe una asignación activa en la requisición con Solicitud de Compra
+                    # que aún no tenga asociada una partida de suministro para unificar la trazabilidad
+                    existing_pr_alloc = rec.requisition_line_id.allocation_ids.filtered(
+                        lambda a: (bool(a.purchase_request_line_id) or bool(a.purchase_line_id))
+                        and not a.supply_request_line_id
+                        and a.state not in ('cancel', 'done')
                     )
-                    company = rec.company_id or self.env.company
-                    self.env['supply.chain.allocation'].create({
-                        'company_id': company.id,
-                        'product_id': rec.product_id.id,
-                        'product_uom_id': rec.product_uom_id.id,
-                        'requested_qty': rec.product_qty,
-                        'delivered_qty': 0.0,
-                        'supply_type': supply_type,
-                        'supply_request_line_id': rec.id,
-                        'requisition_line_id': rec.requisition_line_id.id,
-                        'state': 'draft',
-                    })
+                    if existing_pr_alloc:
+                        alloc = existing_pr_alloc[:1]
+                        alloc.write({'supply_request_line_id': rec.id})
+                    else:
+                        supply_type = rec.requisition_line_id.supply_type or (
+                            'resg' if rec.requisition_line_id.line_type in ('tool', 'equipment') else 'consumption'
+                        )
+                        company = rec.company_id or self.env.company
+                        self.env['requisition.allocation'].create({
+                            'company_id': company.id,
+                            'product_id': rec.product_id.id,
+                            'product_uom_id': rec.product_uom_id.id,
+                            'requested_qty': rec.product_qty,
+                            'delivered_qty': 0.0,
+                            'supply_type': supply_type,
+                            'stage': 'inbound',
+                            'supply_request_line_id': rec.id,
+                            'requisition_line_id': rec.requisition_line_id.id,
+                            'state': 'draft',
+                        })
 
             if rec.request_id:
                 body = Markup(
@@ -630,19 +656,25 @@ class RequisitionSupplyRequestLine(models.Model):
 
         # Vincular con allocation
         if self.allocation_id:
-            self.allocation_id.purchase_request_line_id = pr_line.id
+            self.allocation_id.write({
+                'purchase_request_line_id': pr_line.id,
+                'stage': 'inbound',
+                'state': 'in_progress',
+            })
+            pr_line.allocation_id = self.allocation_id.id
         elif self.requisition_line_id:
             supply_type = self.requisition_line_id.supply_type or (
                 'resg' if self.requisition_line_id.line_type in ('tool', 'equipment') else 'consumption'
             )
             company = self.company_id or self.env.company
-            alloc = self.env['supply.chain.allocation'].create({
+            alloc = self.env['requisition.allocation'].create({
                 'company_id': company.id,
                 'product_id': self.product_id.id,
                 'product_uom_id': self.product_uom_id.id,
                 'requested_qty': self.product_qty,
                 'delivered_qty': 0.0,
                 'supply_type': supply_type,
+                'stage': 'inbound',
                 'supply_request_line_id': self.id,
                 'purchase_request_line_id': pr_line.id,
                 'requisition_line_id': self.requisition_line_id.id,

@@ -99,3 +99,40 @@ class TestRequisitionFlow(common.TransactionCase):
                     })
                 ]
             })
+
+    def test_04_action_draft_blocked_in_progress_and_allowed_from_cancel(self):
+        """Valida que no se permita volver a borrador si la requi está en proceso; debe cancelarse primero."""
+        req = self.env['requisitions'].create({
+            'employee_id': self.employee.id,
+            'warehouse_id': self.warehouse.id,
+            'user_id': self.env.user.id,
+            'line_ids': [
+                (0, 0, {
+                    'product_id': self.product.id,
+                    'product_qty': 10.0,
+                    'line_type': 'material',
+                })
+            ]
+        })
+        req.action_confirm()
+        req.action_approve()
+        req.action_in_progress()
+        self.assertEqual(req.state, 'in_progress')
+
+        # 1. Intentar regresar a borrador directamente en estado 'in_progress' debe arrojar UserError
+        with self.assertRaises(UserError):
+            req.action_draft()
+
+        # 2. Cancelar mediante el asistente de cancelación
+        wizard = self.env['requisition.cancel.wizard'].create({
+            'requisition_id': req.id,
+            'reason': 'Cancelación para corregir y regresar a borrador',
+        })
+        wizard.action_confirm_cancel()
+        self.assertEqual(req.state, 'cancel')
+
+        # 3. Estando en estado 'cancel', ahora SÍ se permite regresar a borrador
+        req.action_draft()
+        self.assertEqual(req.state, 'draft')
+        self.assertEqual(req.line_ids[0].qty_pending, 10.0)
+        self.assertEqual(req.line_ids[0].line_state, 'draft')

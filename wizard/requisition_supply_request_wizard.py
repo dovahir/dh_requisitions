@@ -84,16 +84,16 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
             if existing_sr:
                 res['supply_request_id'] = existing_sr.id
 
-        # Precargar partidas físicas con saldo pendiente
+        # Precargar partidas físicas con saldo pendiente de suministrar
         lines_data = []
         eligible_lines = requisition.line_ids.filtered(
-            lambda l: l.line_type != 'service' and l.qty_pending > 0 and l.line_state not in ('done', 'cancel')
+            lambda l: l.line_type != 'service' and l._get_qty_unsupplied() > 0 and l.line_state not in ('done', 'cancel')
         )
         for line in eligible_lines:
             lines_data.append((0, 0, {
                 'selected': True,
                 'requisition_line_id': line.id,
-                'product_qty': line.qty_pending,
+                'product_qty': line._get_qty_unsupplied(),
                 'notes': line.note or '',
             }))
         res['line_ids'] = lines_data
@@ -107,10 +107,11 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
             raise UserError(_("Debe marcar y especificar una cantidad mayor a cero en al menos una partida."))
 
         for line in selected_lines:
-            if line.product_qty > line.qty_pending:
+            unsupplied = line.requisition_line_id._get_qty_unsupplied()
+            if line.product_qty > unsupplied:
                 raise ValidationError(
-                    _("La cantidad solicitada para '%s' (%s) no puede ser mayor al saldo pendiente (%s).") % (
-                        line.product_id.display_name, line.product_qty, line.qty_pending
+                    _("La cantidad solicitada para '%s' (%s) no puede ser mayor al saldo por suministrar (%s).") % (
+                        line.product_id.display_name, line.product_qty, unsupplied
                     )
                 )
 

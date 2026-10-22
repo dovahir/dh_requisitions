@@ -36,6 +36,8 @@
                 <field name="product_uom_id" string="UdM" options="{'no_create': True}"/>
                 <field name="requester_name" string="Solicitante" optional="show"/>
                 <field name="requisition_id" string="Requisición" optional="show"/>
+                <field name="supply_request_id" optional="show"/>
+                <field name="supply_request_line_id" optional="hide"/>
                 <field name="warehouse_id" string="Almacén Destino" optional="show"/>
                 <field name="company_id" groups="base.group_multi_company" optional="hide"/>
                 <field name="purchase_lines" column_invisible="1"/>
@@ -140,6 +142,8 @@
                         <group string="Logística y Destino">
                             <field name="requester_name"/>
                             <field name="date_required"/>
+                            <field name="supply_request_id" invisible="not supply_request_id"/>
+                            <field name="supply_request_line_id" invisible="not supply_request_line_id"/>
                             <field name="warehouse_id" options="{'no_create': True}"/>
                             <field name="company_id" groups="base.group_multi_company"/>
                             <field name="active" invisible="1"/>
@@ -194,6 +198,7 @@
                 <field name="name" string="Referencia / Nombre"/>
                 <field name="product_id" string="Producto"/>
                 <field name="requisition_id" string="Requisición"/>
+                <field name="supply_request_id" string="Solicitud de Suministro"/>
                 <field name="warehouse_id" string="Almacén Destino"/>
                 <field name="requester_name" string="Solicitante"/>
                 <separator/>
@@ -208,6 +213,7 @@
                 <group>
                     <filter string="Producto" name="group_product" context="{'group_by': 'product_id'}"/>
                     <filter string="Requisición" name="group_req" context="{'group_by': 'requisition_id'}"/>
+                    <filter string="Solicitud de Suministro" name="group_supply_req" context="{'group_by': 'supply_request_id'}"/>
                     <filter string="Almacén Destino" name="group_wh" context="{'group_by': 'warehouse_id'}"/>
                     <filter string="Estado" name="group_state" context="{'group_by': 'state'}"/>
                     <filter string="Prioridad" name="group_priority" context="{'group_by': 'priority'}"/>

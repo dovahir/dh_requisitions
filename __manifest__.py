@@ -17,6 +17,7 @@ Características principales:
 - Configuración de rutas y traslados de material entre almacenes.
 - Consolidación de solicitudes a cotizaciones de compra con seguimiento de entregas y cancelaciones.
 - Gestión de partidas pendientes de envío a obra, división de cantidades y sugerencia de compra por desabasto en base.
+- Matriz de trazabilidad y asignación de suministro con control de entregas, devoluciones y cancelación de saldo.
     """,
     "author": "Aldahir",
     "maintainer": "Aldahir",
@@ -48,6 +49,8 @@ Características principales:
         "wizard/requisition_supply_request_add_pending_wizard_views.xml",
         "wizard/requisition_supply_request_assign_pending_wizard_views.xml",
         "wizard/requisition_purchase_request_add_to_rfq_wizard_views.xml",
+        "wizard/requisition_allocation_cancel_wizard_views.xml",
+        "views/requisition_allocation_views.xml",
         "views/menus.xml",
         "report/paper_format.xml",
         "report/requisition_supply_transfer_report.xml",

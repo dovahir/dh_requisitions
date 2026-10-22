@@ -191,7 +191,7 @@ class TestSupplyRequestAllocation(common.TransactionCase):
             move.quantity = 8.0
         in_picking.button_validate()
 
-        # Al validarse recepción en obra: se asienta delivered_qty en allocation y en requisición
+        # Al validarse recepción en obra: se asienta delivered_qty en allocation inbound
         supply_req._compute_overall_state()
         self.assertEqual(supply_req.state, 'done_exact')
 
@@ -199,10 +199,28 @@ class TestSupplyRequestAllocation(common.TransactionCase):
         self.assertEqual(alloc.delivered_qty, 8.0)
         self.assertEqual(alloc.state, 'done')
 
+        # En la requisición, la mercancía ya arribó al almacén de obra, pero aún no se despacha al empleado (qty_done = 0.0)
+        req_line.invalidate_recordset()
+        req_line._compute_quantities()
+        self.assertEqual(req_line.qty_done, 0.0)
+        self.assertEqual(req_line.qty_allocated_stock, 0.0)
+
+        # 3. Despacho Físico al Solicitante mediante Asistente de Entrega
+        wiz = self.env['requisition.delivery.wizard'].with_context(active_id=requisition.id).create({})
+        wiz.action_confirm()
+
+        out_alloc = req_line.allocation_ids.filtered(lambda a: a.stage == 'outbound')
+        self.assertTrue(out_alloc)
+        self.assertEqual(out_alloc.parent_allocation_id, alloc)
+
+        out_picking = out_alloc.stock_move_id.picking_id
+        for move in out_picking.move_ids:
+            move.quantity = 8.0
+        out_picking.button_validate()
+
         req_line.invalidate_recordset()
         req_line._compute_quantities()
         self.assertEqual(req_line.qty_done, 8.0)
-        self.assertEqual(req_line.qty_allocated_stock, 0.0)
         self.assertEqual(req_line.qty_pending, 0.0)
 
     def test_03_transfer_report_action_generation(self):

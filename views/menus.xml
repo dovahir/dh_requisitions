@@ -33,6 +33,13 @@
                   groups="purchase.group_purchase_user,purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
                   sequence="30"/>
 
+        <menuitem id="menu_requisition_allocation_main"
+                  name="Asignaciones de Suministro"
+                  parent="menu_requisitions_root"
+                  action="action_requisition_allocation"
+                  groups="dh_requisitions.group_requisitions_manager"
+                  sequence="35"/>
+
         <!-- Submenú Configuración -->
         <menuitem id="menu_requisitions_config"
                   name="Configuración"

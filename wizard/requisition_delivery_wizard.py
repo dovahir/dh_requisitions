@@ -153,10 +153,14 @@ class RequisitionDeliveryWizard(models.TransientModel):
 
         moves = self.env['stock.move'].create(moves_vals)
 
-        # Creación en lote en la matriz transversal supply.chain.allocation
+        # Creación en lote en la matriz de asignación requisition.allocation
         alloc_vals_list = []
         for (w_line, req_line), move in zip(lines_mapping, moves):
             supply_type = req_line.supply_type or ('resg' if req_line.line_type in ('tool', 'equipment') else 'consumption')
+            # Vincular con la asignación previa de abastecimiento (inbound) si existió
+            inbound_alloc = req_line.allocation_ids.filtered(
+                lambda a: a.stage == 'inbound' and a.state in ('in_progress', 'done')
+            )[:1]
             alloc_vals_list.append({
                 'company_id': self.company_id.id,
                 'product_id': req_line.product_id.id,
@@ -164,11 +168,13 @@ class RequisitionDeliveryWizard(models.TransientModel):
                 'requested_qty': w_line.qty_to_deliver,
                 'delivered_qty': 0.0,
                 'supply_type': supply_type,
+                'stage': 'outbound',
+                'parent_allocation_id': inbound_alloc.id if inbound_alloc else False,
                 'stock_move_id': move.id,
                 'requisition_line_id': req_line.id,
                 'state': 'in_progress',
             })
-        self.env['supply.chain.allocation'].create(alloc_vals_list)
+        self.env['requisition.allocation'].create(alloc_vals_list)
 
         picking.action_confirm()
 

@@ -31,6 +31,11 @@
                         invisible="not purchase_request_lines"
                         optional="hide"/>
             </xpath>
+
+            <!-- Notas de requisición en la cabecera -->
+            <xpath expr="//page[@name='products']/group/group/field[@name='note']" position="before">
+                <field colspan="2" name="req_note" placeholder="Notas transferidas desde la requisición..." invisible="not req_note" readonly="1"/>
+            </xpath>
         </field>
     </record>
 </odoo>

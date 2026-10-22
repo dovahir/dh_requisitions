@@ -173,7 +173,7 @@ class TestAuditEdgeCases(common.TransactionCase):
 
         # Crear una allocation para la línea simulando flujo
         line = req.line_ids[0]
-        alloc = self.env['supply.chain.allocation'].create({
+        alloc = self.env['requisition.allocation'].create({
             'company_id': self.company.id,
             'product_id': line.product_id.id,
             'product_uom_id': line.product_uom_id.id,
@@ -225,7 +225,7 @@ class TestAuditEdgeCases(common.TransactionCase):
         })
         picking.action_confirm()
 
-        alloc = self.env['supply.chain.allocation'].create({
+        alloc = self.env['requisition.allocation'].create({
             'company_id': self.company.id,
             'product_id': line.product_id.id,
             'product_uom_id': line.product_uom_id.id,
@@ -288,7 +288,7 @@ class TestAuditEdgeCases(common.TransactionCase):
             'warehouse_origin_id': self.base_warehouse.id,
             'warehouse_dest_id': self.obra_warehouse.id,
         })
-        alloc = self.env['supply.chain.allocation'].create({
+        alloc = self.env['requisition.allocation'].create({
             'company_id': self.company.id,
             'product_id': self.product_mat.id,
             'product_uom_id': self.product_mat.uom_id.id,

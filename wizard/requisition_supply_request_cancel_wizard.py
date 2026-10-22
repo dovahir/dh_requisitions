@@ -64,8 +64,8 @@ class RequisitionSupplyRequestCancelWizard(models.TransientModel):
                 picking.message_post(body=picking_body, subtype_xmlid="mail.mt_note")
                 cancelled_pickings.append(picking.name)
 
-        # 2. Cancelar asignaciones en supply.chain.allocation
-        allocations = self.env['supply.chain.allocation'].search([
+        # 2. Cancelar asignaciones en requisition.allocation
+        allocations = self.env['requisition.allocation'].search([
             ('supply_request_line_id', 'in', request.line_ids.ids),
             ('state', 'not in', ('done', 'cancel')),
         ])

@@ -233,6 +233,7 @@
                                            invisible="has_tracking == 'none'"
                                            optional="show"/>
                                     <field name="requester_name" optional="show" readonly="1"/>
+                                    <field name="purchase_request_line_id" optional="show"/>
                                     <field name="requisition_deadline" optional="show"/>
                                     <field name="qty_base_available" string="Stock Base" optional="show"
                                            decoration-danger="suggest_purchase" decoration-success="not suggest_purchase"/>
@@ -317,6 +318,7 @@
                 <field name="suggest_purchase" column_invisible="1"/>
                 <field name="requester_name" optional="show"/>
                 <field name="requisition_id" optional="show"/>
+                <field name="purchase_request_line_id" optional="show"/>
                 <field name="requisition_deadline" optional="show"/>
                 <field name="notes" optional="show"/>
                 <button name="action_create_purchase_request_line"

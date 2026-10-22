@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_requisition_allocation_cancel_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.allocation.cancel.wizard.form</field>
+        <field name="model">requisition.allocation.cancel.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Cancelar Asignaciones de Suministro">
+                <sheet>
+                    <div class="alert alert-warning" role="alert">
+                        Seleccione el tratamiento para el saldo de las asignaciones a cancelar e indique el motivo justificado.
+                    </div>
+                    <group>
+                        <field name="cancel_action" widget="radio"/>
+                        <field name="reason" placeholder="Especifique el motivo detallado de cancelación / justificación..."/>
+                    </group>
+                    <notebook>
+                        <page string="Asignaciones Afectadas" name="affected_allocations">
+                            <field name="allocation_ids" readonly="1">
+                                <list>
+                                    <field name="requisition_id"/>
+                                    <field name="product_id"/>
+                                    <field name="stage" widget="badge" decoration-warning="stage == 'inbound'" decoration-success="stage == 'outbound'"/>
+                                    <field name="requested_qty" string="Asignado"/>
+                                    <field name="delivered_qty" string="Entregado"/>
+                                    <field name="open_qty" string="Pendiente"/>
+                                    <field name="product_uom_id" string="UdM"/>
+                                    <field name="state" widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_cancel" string="Confirmar Cancelación" type="object" class="btn-danger"/>
+                    <button string="Descartar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_requisition_allocation_cancel_wizard" model="ir.actions.act_window">
+        <field name="name">Cancelar Asignaciones</field>
+        <field name="res_model">requisition.allocation.cancel.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="dh_requisitions.model_requisition_allocation"/>
+        <field name="binding_view_types">list,form</field>
+    </record>
+</odoo>

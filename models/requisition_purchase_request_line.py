@@ -131,20 +131,36 @@ class RequisitionPurchaseRequestLine(models.Model):
     )
 
     # =========================================================================
-    # INTEGRACIÓN CON LA MATRIZ TRANSVERSAL SUPPLY.CHAIN.ALLOCATION
+    # INTEGRACIÓN CON LA MATRIZ DE ASIGNACIÓN REQUISITION.ALLOCATION
     # =========================================================================
     allocation_ids = fields.One2many(
-        'supply.chain.allocation',
+        'requisition.allocation',
         'purchase_request_line_id',
-        string='Asignaciones de Cadena de Suministro'
+        string='Asignaciones de Requisición'
     )
     allocation_id = fields.Many2one(
-        'supply.chain.allocation',
+        'requisition.allocation',
         string='Asignación Principal',
         compute='_compute_allocation_id',
         store=True,
         readonly=True,
         index=True
+    )
+    supply_request_line_id = fields.Many2one(
+        'requisition.supply.request.line',
+        string='Partida de Suministro Vinculada',
+        compute='_compute_supply_request_line_id',
+        store=True,
+        readonly=True,
+        help='Partida de Solicitud de Suministro enlazada a través de la asignación unificada.'
+    )
+    supply_request_id = fields.Many2one(
+        'requisition.supply.request',
+        string='Solicitud de Suministro',
+        related='supply_request_line_id.request_id',
+        store=True,
+        readonly=True,
+        help='Folio de la Solicitud de Suministro vinculada.'
     )
 
     # Relaciones con Órdenes y Líneas de Compra
@@ -247,6 +263,12 @@ class RequisitionPurchaseRequestLine(models.Model):
     def _compute_allocation_id(self):
         for rec in self:
             rec.allocation_id = rec.allocation_ids[:1].id if rec.allocation_ids else False
+
+    @api.depends('allocation_ids.supply_request_line_id')
+    def _compute_supply_request_line_id(self):
+        for rec in self:
+            sr_lines = rec.allocation_ids.mapped('supply_request_line_id').filtered(bool)
+            rec.supply_request_line_id = sr_lines[:1].id if sr_lines else False
 
     @api.depends('allocation_ids.purchase_line_id')
     def _compute_purchase_lines(self):

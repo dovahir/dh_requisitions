@@ -67,6 +67,12 @@
             <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
         </record>
 
+        <record id="requisition_allocation_comp_rule" model="ir.rule">
+            <field name="name">Asignación de Requisición Multi-Compañía</field>
+            <field name="model_id" ref="model_requisition_allocation"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
         <!-- ============================================================= -->
         <!-- REGLAS DE REGISTRO POR GRUPO (DEPARTAMENTO Y ESTADO)         -->
         <!-- ============================================================= -->
