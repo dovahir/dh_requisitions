@@ -233,7 +233,18 @@
                                            invisible="has_tracking == 'none'"
                                            optional="show"/>
                                     <field name="requester_name" optional="show" readonly="1"/>
-                                    <field name="purchase_request_line_id" optional="show"/>
+                                    <field name="is_in_purchase" column_invisible="1"/>
+                                    <field name="purchase_request_line_id" string="Línea de Compra" optional="show"/>
+                                    <field name="purchase_process_label" string="Proceso de Compra"
+                                           widget="badge" decoration-warning="is_in_purchase"
+                                           invisible="not is_in_purchase" optional="show"/>
+                                    <field name="purchase_request_line_state" string="Estado de Compra"
+                                           widget="badge"
+                                           decoration-info="purchase_request_line_state in ('pending', 'in_progress')"
+                                           decoration-warning="purchase_request_line_state == 'to_receive'"
+                                           decoration-success="purchase_request_line_state in ('partially_purchased', 'purchased')"
+                                           decoration-muted="purchase_request_line_state == 'cancel'"
+                                           invisible="not is_in_purchase" optional="show"/>
                                     <field name="requisition_deadline" optional="show"/>
                                     <field name="qty_base_available" string="Stock Base" optional="show"
                                            decoration-danger="suggest_purchase" decoration-success="not suggest_purchase"/>
@@ -318,7 +329,18 @@
                 <field name="suggest_purchase" column_invisible="1"/>
                 <field name="requester_name" optional="show"/>
                 <field name="requisition_id" optional="show"/>
-                <field name="purchase_request_line_id" optional="show"/>
+                <field name="is_in_purchase" column_invisible="1"/>
+                <field name="purchase_request_line_id" string="Línea de Compra" optional="show"/>
+                <field name="purchase_process_label" string="Proceso de Compra"
+                       widget="badge" decoration-warning="is_in_purchase"
+                       invisible="not is_in_purchase" optional="show"/>
+                <field name="purchase_request_line_state" string="Estado de Compra"
+                       widget="badge"
+                       decoration-info="purchase_request_line_state in ('pending', 'in_progress')"
+                       decoration-warning="purchase_request_line_state == 'to_receive'"
+                       decoration-success="purchase_request_line_state in ('partially_purchased', 'purchased')"
+                       decoration-muted="purchase_request_line_state == 'cancel'"
+                       invisible="not is_in_purchase" optional="show"/>
                 <field name="requisition_deadline" optional="show"/>
                 <field name="notes" optional="show"/>
                 <button name="action_create_purchase_request_line"

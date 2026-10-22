@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_requisition_purchase_request_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.purchase.request.wizard.form</field>
+        <field name="model">requisition.purchase.request.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Solicitar Compra">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        Seleccione las partidas y cantidades que desea solicitar al departamento de compras.
+                    </div>
+                    <group>
+                        <field name="requisition_id" invisible="1"/>
+                        <field name="company_id" invisible="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Partidas por Solicitar" name="lines_page">
+                            <field name="line_ids">
+                                <list editable="bottom" create="0" delete="0">
+                                    <field name="requisition_line_id" column_invisible="1"/>
+                                    <field name="selected" widget="boolean_toggle"/>
+                                    <field name="product_id"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="qty_unpurchased"/>
+                                    <field name="product_qty"/>
+                                    <field name="priority"/>
+                                    <field name="notes"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" string="Solicitar Compra" type="object" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_requisition_purchase_request_wizard" model="ir.actions.act_window">
+        <field name="name">Solicitar Compra</field>
+        <field name="res_model">requisition.purchase.request.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

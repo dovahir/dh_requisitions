@@ -25,7 +25,7 @@
                             class="btn-danger"
                             confirm="¿Está seguro de cancelar las solicitudes de compra seleccionadas?"/>
                 </header>
-                <field name="priority" widget="priority" optional="show" nolabel="1"/>
+                <field name="priority" optional="show" nolabel="1"/>
                 <field name="product_id" options="{'no_create': True}"/>
                 <field name="notes" optional="show" string="Notas / Ref"/>
                 <field name="product_qty" string="Cant. Solicitada"/>
@@ -127,42 +127,45 @@
                     <div class="oe_title">
                         <label for="name" string="Referencia"/>
                         <h1>
-                            <field name="name" placeholder="Referencia de la Solicitud..."/>
+                            <field name="name" readonly="1"/>
                         </h1>
                     </div>
                     <group>
                         <group string="Detalle de Producto y Requisición">
-                            <field name="requisition_id" options="{'no_create': True}"/>
-                            <field name="requisition_line_id" options="{'no_open': True, 'no_create': True}"/>
-                            <field name="product_id" options="{'no_create': True}"/>
-                            <field name="priority" widget="priority"/>
-                            <field name="product_qty"/>
-                            <field name="product_uom_id" options="{'no_create': True}"/>
+                            <field name="requisition_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="requisition_line_id" invisible="1"/>
+                            <field name="product_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="priority"/>
+                            <field name="product_qty" readonly="1"/>
+                            <field name="product_uom_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
                         </group>
                         <group string="Logística y Destino">
-                            <field name="requester_name"/>
-                            <field name="date_required"/>
-                            <field name="supply_request_id" invisible="not supply_request_id"/>
-                            <field name="supply_request_line_id" invisible="not supply_request_line_id"/>
-                            <field name="warehouse_id" options="{'no_create': True}"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="requester_name" readonly="1"/>
+                            <field name="date_required" readonly="1"/>
+                            <field name="supply_request_id" readonly="1" invisible="not supply_request_id"/>
+                            <field name="supply_request_line_id" readonly="1" invisible="not supply_request_line_id"/>
+                            <field name="warehouse_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>
+                            <field name="company_id" readonly="1" groups="base.group_multi_company"/>
                             <field name="active" invisible="1"/>
                         </group>
                     </group>
                     <group string="Balance y Estado de Suministro">
                         <group>
-                            <field name="pending_qty_to_buy"/>
-                            <field name="qty_in_progress"/>
+                            <field name="pending_qty_to_buy" readonly="1"/>
+                            <field name="qty_in_progress" readonly="1"/>
                         </group>
                         <group>
-                            <field name="qty_to_receive"/>
-                            <field name="qty_done"/>
-                            <field name="qty_cancelled" invisible="qty_cancelled == 0"/>
+                            <field name="qty_to_receive" readonly="1"/>
+                            <field name="qty_done" readonly="1"/>
+                            <field name="qty_cancelled" readonly="1" invisible="qty_cancelled == 0"/>
                         </group>
                     </group>
                     <notebook>
-                        <page string="Especificaciones y Notas" name="notes_page">
-                            <field name="notes" nolabel="1" placeholder="Detalles técnicos, especificaciones de marca o notas para el comprador..."/>
+                        <page string="Notas de Origen" name="notes_page">
+                            <group>
+                                <field name="requisition_notes" readonly="1" string="Notas de la Requisición"/>
+                                <field name="requisition_line_notes" readonly="1" string="Notas de la Partida"/>
+                            </group>
                         </page>
                         <page string="Asignaciones de Cadena de Suministro" name="allocations_page">
                             <field name="allocation_ids" readonly="1">

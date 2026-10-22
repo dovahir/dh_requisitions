@@ -118,6 +118,20 @@ class RequisitionPurchaseRequestLine(models.Model):
     notes = fields.Text(
         string='Notas / Especificaciones'
     )
+    requisition_notes = fields.Text(
+        related='requisition_id.notes',
+        string='Notas de la Requisición',
+        readonly=True,
+        store=True,
+        help="Notas generales heredadas de la requisición de origen."
+    )
+    requisition_line_notes = fields.Char(
+        related='requisition_line_id.note',
+        string='Notas de la Partida',
+        readonly=True,
+        store=True,
+        help="Notas u observaciones específicas heredadas de la partida de la requisición."
+    )
 
     state = fields.Selection(
         _LINE_STATES,

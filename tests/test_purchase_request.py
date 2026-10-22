@@ -80,8 +80,15 @@ class TestPurchaseRequest(common.TransactionCase):
         req.action_confirm()
         req.action_approve()
 
-        # Generar solicitudes de compra
-        req.action_create_purchase_request()
+        # Generar solicitudes de compra mediante el asistente interactivo
+        action = req.action_create_purchase_request()
+        self.assertEqual(action.get('res_model'), 'requisition.purchase.request.wizard')
+
+        wizard = self.env['requisition.purchase.request.wizard'].with_context(
+            active_id=req.id, default_requisition_id=req.id
+        ).create({})
+        self.assertEqual(len(wizard.line_ids), 2, "El wizard debe precargar 2 partidas con saldo por comprar")
+        wizard.action_confirm()
 
         pr_lines = self.env['requisition.purchase.request.line'].search([
             ('requisition_id', '=', req.id)
@@ -93,6 +100,7 @@ class TestPurchaseRequest(common.TransactionCase):
             self.assertEqual(line.pending_qty_to_buy, line.product_qty, "El saldo pendiente inicial debe igualar la cantidad solicitada")
             self.assertTrue(line.allocation_ids, "Debe existir al menos una asignación transversal en supply.chain.allocation")
             self.assertFalse(line.allocation_ids[0].purchase_line_id, "La asignación inicial no debe tener aún línea de compra")
+            self.assertTrue(line.requisition_line_notes, "Debe heredar las notas específicas de la partida")
 
     def test_02_add_to_rfq_wizard_maintains_line_separation(self):
         """Valida que el wizard cree partidas de compra separadas por solicitud/requisición para conservar trazabilidad."""
@@ -110,7 +118,7 @@ class TestPurchaseRequest(common.TransactionCase):
         })
         req1.action_confirm()
         req1.action_approve()
-        req1.action_create_purchase_request()
+        req1._create_purchase_request_lines()
 
         req2 = self.env['requisitions'].create({
             'employee_id': self.employee.id,
@@ -125,7 +133,7 @@ class TestPurchaseRequest(common.TransactionCase):
         })
         req2.action_confirm()
         req2.action_approve()
-        req2.action_create_purchase_request()
+        req2._create_purchase_request_lines()
 
         pr_line1 = self.env['requisition.purchase.request.line'].search([('requisition_id', '=', req1.id)], limit=1)
         pr_line2 = self.env['requisition.purchase.request.line'].search([('requisition_id', '=', req2.id)], limit=1)
@@ -181,7 +189,7 @@ class TestPurchaseRequest(common.TransactionCase):
         })
         req.action_confirm()
         req.action_approve()
-        req.action_create_purchase_request()
+        req._create_purchase_request_lines()
 
         pr_line = self.env['requisition.purchase.request.line'].search([('requisition_id', '=', req.id)], limit=1)
 
@@ -217,7 +225,7 @@ class TestPurchaseRequest(common.TransactionCase):
         })
         req.action_confirm()
         req.action_approve()
-        req.action_create_purchase_request()
+        req._create_purchase_request_lines()
 
         pr_line = self.env['requisition.purchase.request.line'].search([('requisition_id', '=', req.id)], limit=1)
         self.assertEqual(pr_line.state, 'pending')

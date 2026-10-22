@@ -7,21 +7,18 @@
             <form string="Solicitar Suministro (Base a Obra)">
                 <sheet>
                     <div class="alert alert-info" role="alert">
-                        Seleccione las partidas y cantidades requeridas para surtir desde el almacén central hacia la obra. Puede vincularlas a una Solicitud de Suministro (SR) activa o generar una nueva automáticamente.
+                        Seleccione la Solicitud de Suministro hacia donde se agregarán las partidas solicitadas.
                     </div>
                     <group>
-                        <group string="Ruta de Suministro">
-                            <field name="requisition_id"/>
-                            <field name="warehouse_dest_id"/>
-                            <field name="warehouse_origin_id" options="{'no_create': True}"/>
-                        </group>
-                        <group string="Destino de las Partidas">
-                            <field name="supply_request_id" options="{'no_create': True}"/>
-                            <field name="notes" placeholder="Observaciones o notas adicionales..."/>
-                        </group>
+                        <field name="requisition_id" invisible="1"/>
+                        <field name="company_id" invisible="1"/>
+                        <field name="warehouse_dest_id" invisible="1"/>
+                        <field name="warehouse_origin_id" invisible="1"/>
+                        <field name="supply_request_id" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="notes" placeholder="Observaciones o notas adicionales..."/>
                     </group>
                     <notebook>
-                        <page string="Partidas a Suministrar" name="lines_page">
+                        <page string="Partidas por Solicitar" name="lines_page">
                             <field name="line_ids">
                                 <list editable="bottom" create="0" delete="0">
                                     <field name="requisition_line_id" column_invisible="1"/>
@@ -37,7 +34,7 @@
                     </notebook>
                 </sheet>
                 <footer>
-                    <button name="action_confirm" string="Agregar a Solicitud de Suministro" type="object" class="btn-primary"/>
+                    <button name="action_confirm" string="Solicitar" type="object" class="btn-primary"/>
                     <button string="Cancelar" class="btn-secondary" special="cancel"/>
                 </footer>
             </form>

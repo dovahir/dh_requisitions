@@ -120,7 +120,7 @@ class TestRequisitionsPermissions(common.TransactionCase):
 
         # Intentar modificar una requisición aprobada debe fallar con UserError
         with self.assertRaises(UserError):
-            req.with_user(self.user_solicitante).write({'priority': '3'})
+            req.with_user(self.user_solicitante).write({'priority': 'urgent'})
 
     def test_03_delivery_wizard_requires_stock_or_manager(self):
         """Valida que action_open_delivery_wizard requiera stock.group_stock_user o admin de requisiciones."""

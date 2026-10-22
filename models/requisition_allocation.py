@@ -315,6 +315,21 @@ class RequisitionAllocation(models.Model):
                     _("Motivo"),
                     escape(motivo_text)
                 )
+
+                line = rec.requisition_line_id
+                if line and cancel_action == 'close':
+                    uom_str = escape(line.product_uom_id.name or '')
+                    body += Markup(
+                        "<br/><strong>%s:</strong> %s"
+                    ) % (
+                        _("Ajuste de Partida"),
+                        _("Se canceló el saldo pendiente. Requerido original: %s %s, efectivamente suministrado: %s %s, cancelado: %s %s.") % (
+                            line.product_qty, uom_str,
+                            line.qty_done, uom_str,
+                            line.qty_cancelled, uom_str
+                        )
+                    )
+
                 rec.requisition_id.message_post(body=body, subtype_xmlid="mail.mt_note")
                 if hasattr(rec.requisition_id, '_update_state_from_lines'):
                     rec.requisition_id._update_state_from_lines()

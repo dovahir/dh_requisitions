@@ -93,11 +93,20 @@ class TestSupplyRequestAllocation(common.TransactionCase):
         self.assertEqual(req_line.qty_pending, 10.0)
         self.assertEqual(req_line.qty_allocated_stock, 0.0)
 
-        # Generar solicitud de suministro mediante el wizard para 6.0 unidades
+        # Generar solicitud de suministro agregando partidas a una SR abierta existente mediante el wizard
+        supply_req = self.env['requisition.supply.request'].create({
+            'warehouse_origin_id': self.wh_base.id,
+            'warehouse_dest_id': self.wh_obra.id,
+            'location_id': self.wh_base.lot_stock_id.id,
+            'company_id': self.company.id,
+            'state': 'draft',
+            'is_blocked': False,
+        })
         wizard = self.env['requisition.supply.request.wizard'].with_context(
             active_id=requisition.id
         ).create({
             'requisition_id': requisition.id,
+            'supply_request_id': supply_req.id,
             'warehouse_origin_id': self.wh_base.id,
             'line_ids': [(0, 0, {
                 'selected': True,
@@ -106,7 +115,8 @@ class TestSupplyRequestAllocation(common.TransactionCase):
             })]
         })
         action = wizard.action_confirm()
-        supply_req = self.env['requisition.supply.request'].browse(action['res_id'])
+        self.assertEqual(action.get('type'), 'ir.actions.client')
+        self.assertEqual(action.get('tag'), 'display_notification')
         self.assertEqual(supply_req.state, 'draft')
         self.assertEqual(len(supply_req.line_ids), 1)
 

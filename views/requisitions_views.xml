@@ -12,7 +12,7 @@
                   decoration-info="state == 'draft'"
                   decoration-success="state == 'done'">
                 <field name="can_edit_lines" column_invisible="True"/>
-                <field name="priority" widget="priority" optional="show" nolabel="1" readonly="not can_edit_lines"/>
+                <field name="priority" optional="show" nolabel="1" readonly="not can_edit_lines"/>
                 <field name="name"/>
                 <field name="employee_id"/>
                 <field name="department_id" optional="show"/>
@@ -51,8 +51,8 @@
                     <button name="action_cancel" string="Cancelar" type="object"
                             invisible="state != 'draft'"/>
                     <button name="action_draft" string="Volver a Borrador" type="object"
-                            invisible="state not in ('cancel', 'rejected', 'approved')"
-                            groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
+                            invisible="state not in ('cancel', 'rejected', 'to_approve')"
+                            groups="dh_requisitions.group_requisitions_user,dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <!-- Botones operativos en estado aprobado / en proceso ordenados -->
                     <button name="action_open_delivery_wizard" string="Entregar Productos" type="object"
                             class="btn-primary"
@@ -70,6 +70,9 @@
                             class="btn btn-secondary"
                             invisible="state not in ('approved', 'in_progress') or not has_services"
                             groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
+                    <button name="action_draft" string="Regresar a Borrador" type="object"
+                            invisible="state != 'approved'"
+                            groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_open_cancel_wizard" string="Cancelar" type="object"
                             invisible="state not in ('approved', 'in_progress', 'partially_done')"/>
                     <field name="state" widget="statusbar"
@@ -116,7 +119,7 @@
                             <field name="user_id" readonly="not can_edit_lines"
                                    options="{'no_create': True, 'no_create_edit': True}"
                                    required="1"/>
-                            <field name="priority" widget="priority" readonly="not can_edit_lines"/>
+                            <field name="priority" readonly="not can_edit_lines"/>
                         </group>
                         <!-- Grupo: Destino -->
                         <group string="Destino" name="destination_data">
@@ -157,19 +160,19 @@
                                     <field name="line_type" column_invisible="1"/>
                                     <field name="sequence" widget="handle"/>
                                     <field name="sequence_number" readonly="1"/>
-                                    <field name="priority" widget="priority" optional="show"/>
+                                    <field name="priority" optional="show"/>
                                     <field name="product_id"
                                            options="{'no_create': True, 'no_create_edit': True}"
                                            domain="[('categ_id.requisition_type', '=', 'material'), ('categ_id.allow_requisition', '!=', False)]"/>
                                     <field name="product_qty"/>
-                                    <field name="qty_done" readonly="1" optional="hide"/>
-                                    <field name="qty_pending" readonly="1" optional="hide"/>
+                                    <field name="qty_done" readonly="1" optional="show"/>
+                                    <field name="qty_pending" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
                                     <field name="product_uom_id"/>
                                     <field name="line_state" widget="badge" optional="show"
                                             decoration-info="line_state in ('draft', 'pending')"
-                                            decoration-warning="line_state in ('partial_assigned', 'partially_done')"
-                                            decoration-primary="line_state == 'assigned'"
+                                            decoration-warning="line_state in ('partial_stock', 'partial_purchase', 'partial_mixed', 'partially_done')"
+                                            decoration-primary="line_state in ('in_stock', 'in_purchase', 'in_mixed')"
                                             decoration-success="line_state == 'done'"
                                             decoration-muted="line_state == 'cancel'"/>
                                     <field name="note"/>
@@ -186,13 +189,13 @@
                                     <field name="line_type" column_invisible="1"/>
                                     <field name="sequence" widget="handle"/>
                                     <field name="sequence_number" readonly="1"/>
-                                    <field name="priority" widget="priority" optional="show"/>
+                                    <field name="priority" optional="show"/>
                                     <field name="product_id"
                                            options="{'no_create': True, 'no_create_edit': True}"
                                            domain="[('categ_id.requisition_type', '=', 'tool'), ('categ_id.allow_requisition', '!=', False)]"/>
                                     <field name="product_qty"/>
-                                    <field name="qty_done" readonly="1" optional="hide"/>
-                                    <field name="qty_pending" readonly="1" optional="hide"/>
+                                    <field name="qty_done" readonly="1" optional="show"/>
+                                    <field name="qty_pending" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
                                     <field name="product_uom_id"/>
                                     <field name="custody_state" widget="badge" optional="show"
@@ -201,8 +204,8 @@
                                            decoration-muted="custody_state == 'none'"/>
                                     <field name="line_state" widget="badge" optional="show"
                                             decoration-info="line_state in ('draft', 'pending')"
-                                            decoration-warning="line_state in ('partial_assigned', 'partially_done')"
-                                            decoration-primary="line_state == 'assigned'"
+                                            decoration-warning="line_state in ('partial_stock', 'partial_purchase', 'partial_mixed', 'partially_done')"
+                                            decoration-primary="line_state in ('in_stock', 'in_purchase', 'in_mixed')"
                                             decoration-success="line_state == 'done'"
                                             decoration-muted="line_state == 'cancel'"/>
                                     <field name="note"/>
@@ -219,13 +222,13 @@
                                     <field name="line_type" column_invisible="1"/>
                                     <field name="sequence" widget="handle"/>
                                     <field name="sequence_number" readonly="1"/>
-                                    <field name="priority" widget="priority" optional="show"/>
+                                    <field name="priority" optional="show"/>
                                     <field name="product_id"
                                            options="{'no_create': True, 'no_create_edit': True}"
                                            domain="[('categ_id.requisition_type', '=', 'equipment'), ('categ_id.allow_requisition', '!=', False)]"/>
                                     <field name="product_qty"/>
-                                    <field name="qty_done" readonly="1" optional="hide"/>
-                                    <field name="qty_pending" readonly="1" optional="hide"/>
+                                    <field name="qty_done" readonly="1" optional="show"/>
+                                    <field name="qty_pending" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
                                     <field name="product_uom_id"/>
                                     <field name="custody_state" widget="badge" optional="show"
@@ -234,8 +237,8 @@
                                            decoration-muted="custody_state == 'none'"/>
                                     <field name="line_state" widget="badge" optional="show"
                                             decoration-info="line_state in ('draft', 'pending')"
-                                            decoration-warning="line_state in ('partial_assigned', 'partially_done')"
-                                            decoration-primary="line_state == 'assigned'"
+                                            decoration-warning="line_state in ('partial_stock', 'partial_purchase', 'partial_mixed', 'partially_done')"
+                                            decoration-primary="line_state in ('in_stock', 'in_purchase', 'in_mixed')"
                                             decoration-success="line_state == 'done'"
                                             decoration-muted="line_state == 'cancel'"/>
                                     <field name="note"/>
@@ -252,19 +255,19 @@
                                     <field name="line_type" column_invisible="1"/>
                                     <field name="sequence" widget="handle"/>
                                     <field name="sequence_number" readonly="1"/>
-                                    <field name="priority" widget="priority" optional="show"/>
+                                    <field name="priority" optional="show"/>
                                     <field name="product_id"
                                            options="{'no_create': True, 'no_create_edit': True}"
                                            domain="[('categ_id.requisition_type', '=', 'service'), ('categ_id.allow_requisition', '!=', False)]"/>
                                     <field name="product_qty"/>
-                                    <field name="qty_done" readonly="1" optional="hide"/>
-                                    <field name="qty_pending" readonly="1" optional="hide"/>
+                                    <field name="qty_done" readonly="1" optional="show"/>
+                                    <field name="qty_pending" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
                                     <field name="product_uom_id"/>
                                     <field name="line_state" widget="badge" optional="show"
                                             decoration-info="line_state in ('draft', 'pending')"
-                                            decoration-warning="line_state in ('partial_assigned', 'partially_done')"
-                                            decoration-primary="line_state == 'assigned'"
+                                            decoration-warning="line_state in ('partial_stock', 'partial_purchase', 'partial_mixed', 'partially_done')"
+                                            decoration-primary="line_state in ('in_stock', 'in_purchase', 'in_mixed')"
                                             decoration-success="line_state == 'done'"
                                             decoration-muted="line_state == 'cancel'"/>
                                     <field name="note"/>
@@ -344,7 +347,7 @@
                                     <i class="fa fa-calendar me-1" title="Fecha Requerida"/>
                                     <field name="date_required"/>
                                 </span>
-                                <field name="priority" widget="priority"/>
+                                <field name="priority"/>
                             </div>
                         </div>
                     </t>

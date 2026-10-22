@@ -166,6 +166,23 @@ class RequisitionSupplyRequestLine(models.Model):
         readonly=True,
         help='Partida de Solicitud de Compra vinculada a través de la asignación unificada.'
     )
+    is_in_purchase = fields.Boolean(
+        string='En Proceso de Compra',
+        compute='_compute_purchase_process_info',
+        store=True,
+        help="Indica si la partida cuenta con una solicitud de compra activa."
+    )
+    purchase_process_label = fields.Char(
+        string='Proceso de Compra',
+        compute='_compute_purchase_process_info',
+        store=True,
+    )
+    purchase_request_line_state = fields.Selection(
+        related='purchase_request_line_id.state',
+        string='Estado de Compra',
+        readonly=True,
+        store=True,
+    )
     qty_in_transit = fields.Float(
         string='En Tránsito',
         compute='_compute_quantities',
@@ -270,6 +287,15 @@ class RequisitionSupplyRequestLine(models.Model):
         for line in self:
             linked_pr = line.allocation_ids.mapped('purchase_request_line_id')
             line.purchase_request_line_id = linked_pr[:1].id if linked_pr else False
+
+    @api.depends('purchase_request_line_id', 'purchase_request_line_id.state')
+    def _compute_purchase_process_info(self):
+        for line in self:
+            is_active = bool(
+                line.purchase_request_line_id and line.purchase_request_line_id.state != 'cancel'
+            )
+            line.is_in_purchase = is_active
+            line.purchase_process_label = _("En proceso de compra") if is_active else False
 
     @api.depends(
         'allocation_ids.requested_qty',
@@ -484,6 +510,7 @@ class RequisitionSupplyRequestLine(models.Model):
                             'state': 'draft',
                         })
 
+        for rec in created_records:
             if rec.request_id:
                 body = Markup(
                     "<div class='d-flex align-items-center mb-1'>"

@@ -18,6 +18,7 @@ Características principales:
 - Consolidación de solicitudes a cotizaciones de compra con seguimiento de entregas y cancelaciones.
 - Gestión de partidas pendientes de envío a obra, división de cantidades y sugerencia de compra por desabasto en base.
 - Matriz de trazabilidad y asignación de suministro con control de entregas, devoluciones y cancelación de saldo.
+- Asistente interactivo de solicitud de compra con selección granular de partidas y priorización simplificada.
     """,
     "author": "Aldahir",
     "maintainer": "Aldahir",
@@ -43,6 +44,7 @@ Características principales:
         "wizard/requisition_cancel_wizard_views.xml",
         "wizard/requisition_delivery_wizard_views.xml",
         "wizard/requisition_supply_request_wizard_views.xml",
+        "wizard/requisition_purchase_request_wizard_views.xml",
         "wizard/requisition_supply_request_block_wizard_views.xml",
         "wizard/requisition_supply_request_cancel_wizard_views.xml",
         "wizard/requisition_supply_request_line_split_wizard_views.xml",

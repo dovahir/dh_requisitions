@@ -104,13 +104,11 @@ class Requisitions(models.Model):
     )
     priority = fields.Selection(
         [
-            ('0', 'Sin prioridad'),
-            ('1', 'Baja'),
-            ('2', 'Media'),
-            ('3', 'Urgente'),
+            ('normal', 'Normal'),
+            ('urgent', 'Urgente'),
         ],
         string="Prioridad",
-        default='1',
+        default='normal',
         tracking=True
     )
 
@@ -461,11 +459,15 @@ class Requisitions(models.Model):
             if not active_lines:
                 continue
 
+            in_progress_states = (
+                'in_stock', 'in_purchase', 'in_mixed',
+                'partial_stock', 'partial_purchase', 'partial_mixed'
+            )
             if all(l.line_state == 'done' for l in active_lines):
                 rec.action_done()
             elif any(l.line_state == 'done' for l in active_lines) or any(l.qty_done > 0 for l in active_lines):
                 rec.action_partially_done()
-            elif any(l.line_state in ('assigned', 'partial_assigned') for l in active_lines):
+            elif any(l.line_state in in_progress_states for l in active_lines):
                 if rec.state != 'in_progress':
                     rec.action_in_progress()
             elif all(l.line_state == 'pending' for l in active_lines):
@@ -557,7 +559,7 @@ class Requisitions(models.Model):
         }
 
     def action_draft(self):
-        """Regresa la requisición a borrador desde estado cancelado, rechazado o aprobado sin flujo en proceso."""
+        """Regresa la requisición a borrador desde estado por autorizar, cancelado, rechazado o aprobado sin flujo en proceso."""
         for rec in self:
             if rec.state in ('in_progress', 'partially_done', 'done'):
                 raise UserError(_(
@@ -704,7 +706,7 @@ class Requisitions(models.Model):
         }
 
     def action_create_purchase_request(self):
-        """Genera líneas de solicitud de compra para materiales, herramientas o servicios con saldo pendiente."""
+        """Abre el asistente interactivo para solicitar compra de partidas con saldo pendiente."""
         self.ensure_one()
         if not (self.env.user.has_group('purchase.group_purchase_user') and
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
@@ -718,6 +720,45 @@ class Requisitions(models.Model):
         if not lines_to_buy:
             raise UserError(_("No hay partidas con saldo pendiente para enviar a compra."))
 
+        return {
+            'name': _('Solicitar Compra'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'requisition.purchase.request.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_requisition_id': self.id, 'active_id': self.id},
+        }
+
+    def _create_purchase_request_lines(self, lines_data=None):
+        """
+        Genera líneas de solicitud de compra y registra el ledger requisition.allocation.
+        lines_data: Lista de diccionarios [{'line': requisitions.line, 'qty': float, 'priority': str, 'notes': str}]
+        Si lines_data es None, procesa todas las partidas con saldo pendiente por comprar.
+        """
+        self.ensure_one()
+        if lines_data is None:
+            lines_data = [
+                {
+                    'line': l,
+                    'qty': l._get_qty_unpurchased(),
+                    'priority': l.priority or 'normal',
+                    'notes': l.note or '',
+                }
+                for l in self.line_ids.filtered(
+                    lambda l: l._get_qty_unpurchased() > 0 and l.line_state not in ('done', 'cancel')
+                )
+            ]
+
+        if isinstance(lines_data, dict):
+            normalized = []
+            for k, v in lines_data.items():
+                l = self.line_ids.filtered(lambda x: x.id == k) if isinstance(k, int) else k
+                normalized.append({'line': l, 'qty': v})
+            lines_data = normalized
+
+        if not lines_data:
+            raise UserError(_("No hay partidas válidas con saldo pendiente para enviar a compra."))
+
         created_lines = self.env['requisition.purchase.request.line']
 
         base_wh = self.env['stock.warehouse'].search([
@@ -727,8 +768,14 @@ class Requisitions(models.Model):
 
         is_destination_obra = bool(base_wh and self.warehouse_id.id != base_wh.id)
 
-        for line in lines_to_buy:
-            qty_to_buy = line._get_qty_unpurchased()
+        for item in lines_data:
+            line = item['line']
+            qty_to_buy = item['qty']
+            if qty_to_buy <= 0:
+                continue
+            line_priority = item.get('priority') or line.priority or 'normal'
+            line_notes = item.get('notes') or line.note or ''
+
             # Buscar asignaciones activas de suministro de la partida que aún no tienen compra
             existing_supply_allocs = line.allocation_ids.filtered(
                 lambda a: a.supply_request_line_id and not a.purchase_request_line_id and not a.purchase_line_id and a.state not in ('cancel', 'done')
@@ -744,7 +791,8 @@ class Requisitions(models.Model):
                     'requisition_line_id': line.id,
                     'product_id': line.product_id.id,
                     'product_qty': alloc_qty,
-                    'notes': line.note or '',
+                    'priority': line_priority,
+                    'notes': line_notes,
                     'state': 'pending',
                 })
                 created_lines |= pr_line
@@ -771,7 +819,8 @@ class Requisitions(models.Model):
                     'requisition_line_id': line.id,
                     'product_id': line.product_id.id,
                     'product_qty': remaining_to_buy,
-                    'notes': line.note or '',
+                    'priority': line_priority,
+                    'notes': line_notes,
                     'state': 'pending',
                 })
                 created_lines |= pr_line
@@ -786,7 +835,7 @@ class Requisitions(models.Model):
                         'product_qty': remaining_to_buy,
                         'warehouse_dest_id': self.warehouse_id.id,
                         'warehouse_origin_id': base_wh.id if base_wh else False,
-                        'notes': line.note or '',
+                        'notes': line_notes,
                     })
 
                 supply_type = line.supply_type or ('resg' if line.line_type in ('tool', 'equipment') else 'consumption')
@@ -805,25 +854,19 @@ class Requisitions(models.Model):
                 })
                 pr_line.allocation_id = alloc.id
 
-        if self.state == 'approved':
+        if created_lines and self.state == 'approved':
             self.action_in_progress()
 
-        msg = Markup(_(
-            "Se generaron <strong>%s</strong> partida(s) de Solicitud de Compra para seguimiento del área de compras."
-        )) % len(created_lines)
-        if is_destination_obra:
-            msg += Markup(_("<br/>Se registraron las partidas en el pool de <strong>Pendientes de Envío</strong> para posterior traslado Base a Obra."))
+        if created_lines:
+            msg = Markup(_(
+                "Se generaron <strong>%s</strong> partida(s) de Solicitud de Compra para seguimiento del área de compras."
+            )) % len(created_lines)
+            if is_destination_obra:
+                msg += Markup(_("<br/>Se registraron las partidas en el pool de <strong>Pendientes de Envío</strong> para posterior traslado Base a Obra."))
 
-        self.message_post(body=msg, subtype_xmlid="mail.mt_note")
+            self.message_post(body=msg, subtype_xmlid="mail.mt_note")
 
-        return {
-            'name': _('Líneas de Solicitud de Compra'),
-            'type': 'ir.actions.act_window',
-            'res_model': 'requisition.purchase.request.line',
-            'view_mode': 'list,form',
-            'domain': [('requisition_id', '=', self.id)],
-            'context': {'default_requisition_id': self.id},
-        }
+        return created_lines
 
     def action_view_lines_tracking(self):
         """Abre la vista de seguimiento interactiva para visualizar el avance de las líneas de la requisición."""

@@ -104,15 +104,13 @@ class RequisitionsLine(models.Model):
     )
 
     def _default_priority(self):
-        """Hereda la prioridad de la requisición padre si está disponible en contexto, o '1' (Baja)."""
-        return self.env.context.get('default_priority') or '1'
+        """Hereda la prioridad de la requisición padre si está disponible en contexto, o 'normal'."""
+        return self.env.context.get('default_priority') or 'normal'
 
     priority = fields.Selection(
         [
-            ('0', 'Sin prioridad'),
-            ('1', 'Baja'),
-            ('2', 'Media'),
-            ('3', 'Urgente'),
+            ('normal', 'Normal'),
+            ('urgent', 'Urgente'),
         ],
         string="Prioridad",
         compute='_compute_priority',
@@ -169,8 +167,12 @@ class RequisitionsLine(models.Model):
         [
             ('draft', 'Borrador'),
             ('pending', 'Pendiente'),
-            ('partial_assigned', 'Parcialmente Asignado'),
-            ('assigned', 'Asignado'),
+            ('in_stock', 'Solicitado a Almacén'),
+            ('in_purchase', 'Solicitado a Compra'),
+            ('in_mixed', 'Solicitud Mixta'),
+            ('partial_stock', 'Solicitado Parcial (Almacén)'),
+            ('partial_purchase', 'Solicitado Parcial (Compra)'),
+            ('partial_mixed', 'Solicitado Parcial (Mixto)'),
             ('partially_done', 'Parcialmente Suministrado'),
             ('done', 'Suministrado'),
             ('cancel', 'Cancelado'),
@@ -224,7 +226,7 @@ class RequisitionsLine(models.Model):
             elif self.env.context.get('default_priority'):
                 line.priority = self.env.context.get('default_priority')
             elif not line.priority:
-                line.priority = '1'
+                line.priority = 'normal'
 
     def _get_qty_unpurchased(self):
         """
@@ -360,9 +362,23 @@ class RequisitionsLine(models.Model):
             elif line.qty_done > 0:
                 line.line_state = 'partially_done'
             elif line.qty_pending <= 0:
-                line.line_state = 'assigned'
+                has_stock = line.qty_allocated_stock > 0
+                has_purchase = line.qty_allocated_purchase > 0
+                if has_stock and has_purchase:
+                    line.line_state = 'in_mixed'
+                elif has_purchase:
+                    line.line_state = 'in_purchase'
+                else:
+                    line.line_state = 'in_stock'
             elif (line.qty_allocated_stock + line.qty_allocated_purchase) > 0:
-                line.line_state = 'partial_assigned'
+                has_stock = line.qty_allocated_stock > 0
+                has_purchase = line.qty_allocated_purchase > 0
+                if has_stock and has_purchase:
+                    line.line_state = 'partial_mixed'
+                elif has_purchase:
+                    line.line_state = 'partial_purchase'
+                else:
+                    line.line_state = 'partial_stock'
             else:
                 line.line_state = 'pending'
 

@@ -276,3 +276,77 @@ class TestSupplyRequest(common.TransactionCase):
         res = wizard.action_confirm()
         self.assertEqual(res.get('res_model'), 'stock.picking')
 
+    def test_09_supply_request_wizard_adds_to_existing_sr_with_notification(self):
+        """Valida que el wizard de suministro solo agregue a SR existentes no bloqueadas y retorne notificación."""
+        categ = self.env['product.category'].create({
+            'name': 'Materiales SR Test',
+            'requisition_type': 'material',
+            'allow_requisition': True,
+        })
+        product = self.env['product.product'].create({
+            'name': 'Arena Fina Test',
+            'type': 'consu',
+            'categ_id': categ.id,
+        })
+        employee = self.env['hr.employee'].create({
+            'name': 'Empleado SR Test',
+            'user_id': self.env.user.id,
+            'company_id': self.company.id,
+        })
+        req = self.env['requisitions'].create({
+            'name': 'REQ-SR-WIZ-001',
+            'employee_id': employee.id,
+            'user_id': self.env.user.id,
+            'warehouse_id': self.wh_origin.id,
+            'line_ids': [
+                (0, 0, {
+                    'product_id': product.id,
+                    'product_qty': 10.0,
+                    'line_type': 'material',
+                })
+            ]
+        })
+        req.action_confirm()
+        req.action_approve()
+
+        sr = self.env['requisition.supply.request'].create({
+            'warehouse_origin_id': self.wh_origin.id,
+            'warehouse_dest_id': self.wh_origin.id,
+            'location_id': self.wh_origin.lot_stock_id.id,
+            'company_id': self.company.id,
+            'state': 'draft',
+            'is_blocked': False,
+        })
+
+        wizard = self.env['requisition.supply.request.wizard'].with_context(
+            active_id=req.id
+        ).create({
+            'supply_request_id': sr.id,
+        })
+        action = wizard.action_confirm()
+
+        # Debe retornar notificación client action, no abrir formulario de SR
+        self.assertEqual(action.get('type'), 'ir.actions.client')
+        self.assertEqual(action.get('tag'), 'display_notification')
+        self.assertEqual(action.get('params', {}).get('type'), 'success')
+
+        # La línea debió agregarse a la SR seleccionada
+        sr_lines = sr.line_ids.filtered(lambda l: l.requisition_line_id == req.line_ids[0])
+        self.assertTrue(sr_lines)
+        self.assertEqual(sr_lines[0].product_qty, 10.0)
+        self.assertFalse(sr_lines[0].is_in_purchase)
+
+        # Si se vincula a una solicitud de compra, se activa is_in_purchase
+        pr_line = self.env['requisition.purchase.request.line'].create({
+            'requisition_id': req.id,
+            'requisition_line_id': req.line_ids[0].id,
+            'product_id': product.id,
+            'product_qty': 10.0,
+            'state': 'pending',
+        })
+        sr_lines[0].allocation_ids[0].write({'purchase_request_line_id': pr_line.id})
+        sr_lines[0].invalidate_recordset()
+        self.assertTrue(sr_lines[0].is_in_purchase)
+        self.assertEqual(sr_lines[0].purchase_process_label, "En proceso de compra")
+        self.assertEqual(sr_lines[0].purchase_request_line_state, 'pending')
+

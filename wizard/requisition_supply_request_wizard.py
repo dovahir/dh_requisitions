@@ -40,8 +40,9 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
     supply_request_id = fields.Many2one(
         'requisition.supply.request',
         string="Solicitud de Suministro (SR) Destino",
-        domain="[('warehouse_dest_id', '=', warehouse_dest_id), ('warehouse_origin_id', '=', warehouse_origin_id), ('state', '=', 'draft'), ('is_blocked', '=', False)]",
-        help="Seleccione una Solicitud de Suministro activa existente o deje vacío para generar una nueva."
+        required=True,
+        domain="[('company_id', '=', company_id), ('warehouse_dest_id', '=', warehouse_dest_id), ('state', '=', 'draft'), ('is_blocked', '=', False)]",
+        help="Seleccione una Solicitud de Suministro activa existente y sin corte."
     )
     notes = fields.Char(
         string="Notas / Observaciones"
@@ -49,7 +50,7 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
     line_ids = fields.One2many(
         'requisition.supply.request.wizard.line',
         'wizard_id',
-        string="Partidas a Suministrar"
+        string="Partidas por Solicitar"
     )
 
     @api.model
@@ -100,8 +101,17 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
         return res
 
     def action_confirm(self):
-        """Agrega las partidas seleccionadas a la SR activa o nueva y abre su formulario."""
+        """Agrega las partidas seleccionadas a la Solicitud de Suministro activa y emite notificación informativa."""
         self.ensure_one()
+        if not self.supply_request_id:
+            raise UserError(_("Debe seleccionar una Solicitud de Suministro activa y abierta (en proceso y sin corte)."))
+
+        if self.supply_request_id.is_blocked:
+            raise UserError(_("La Solicitud de Suministro seleccionada se encuentra bloqueada por corte de almacén."))
+
+        if self.supply_request_id.state != 'draft':
+            raise UserError(_("Solo se pueden agregar partidas a solicitudes de suministro abiertas (en proceso)."))
+
         selected_lines = self.line_ids.filtered(lambda l: l.selected and l.product_qty > 0)
         if not selected_lines:
             raise UserError(_("Debe marcar y especificar una cantidad mayor a cero en al menos una partida."))
@@ -115,40 +125,9 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
                     )
                 )
 
-        # Reutilizar SR activa seleccionada o crear una nueva
         supply_request = self.supply_request_id
-        if not supply_request:
-            picking_type = self.env['stock.picking.type'].search([
-                ('warehouse_id', '=', self.warehouse_origin_id.id),
-                ('code', '=', 'internal'),
-                ('is_requisition_operation', '=', True),
-            ], limit=1)
-            picking_type_dest = False
-            if picking_type and picking_type.default_dest_picking_type:
-                picking_type_dest = picking_type.default_dest_picking_type
-            elif self.warehouse_dest_id:
-                picking_type_dest = self.env['stock.picking.type'].search([
-                    ('warehouse_id', '=', self.warehouse_dest_id.id),
-                    ('code', '=', 'internal'),
-                ], limit=1)
-
-            location_src = picking_type.default_location_src_id if picking_type else False
-            location_dest = picking_type_dest.default_location_dest_id if picking_type_dest else False
-
-            supply_request = self.env['requisition.supply.request'].create({
-                'company_id': self.company_id.id,
-                'warehouse_origin_id': self.warehouse_origin_id.id,
-                'warehouse_dest_id': self.warehouse_dest_id.id,
-                'picking_type_id': picking_type.id if picking_type else False,
-                'picking_type_dest_id': picking_type_dest.id if picking_type_dest else False,
-                'location_id': location_src.id if location_src else False,
-                'location_dest_id': location_dest.id if location_dest else False,
-                'requisition_ids': [(4, self.requisition_id.id)],
-                'notes': self.notes or _("Generado desde requisición %s") % self.requisition_id.name,
-            })
-        elif self.requisition_id.id not in supply_request.requisition_ids.ids:
+        if self.requisition_id.id not in supply_request.requisition_ids.ids:
             supply_request.requisition_ids = [(4, self.requisition_id.id)]
-
 
         for w_line in selected_lines:
             req_line = w_line.requisition_line_id
@@ -171,11 +150,17 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
         )
 
         return {
-            'name': _('Solicitud de Suministro'),
-            'type': 'ir.actions.act_window',
-            'res_model': 'requisition.supply.request',
-            'view_mode': 'form',
-            'res_id': supply_request.id,
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Partidas Agregadas'),
+                'message': _('Se agregaron exitosamente %s partida(s) a la Solicitud de Suministro %s.') % (
+                    len(selected_lines), supply_request.name
+                ),
+                'type': 'success',
+                'sticky': False,
+                'next': {'type': 'ir.actions.act_window_close'},
+            }
         }
 
 

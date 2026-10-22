@@ -26,11 +26,11 @@
                        decoration-muted="custody_state == 'none'"/>
                 <field name="line_state" widget="badge"
                        decoration-info="line_state in ('draft', 'pending')"
-                       decoration-warning="line_state in ('partial_assigned', 'partially_done')"
-                       decoration-primary="line_state == 'assigned'"
+                       decoration-warning="line_state in ('partial_stock', 'partial_purchase', 'partial_mixed', 'partially_done')"
+                       decoration-primary="line_state in ('in_stock', 'in_purchase', 'in_mixed')"
                        decoration-success="line_state == 'done'"
                        decoration-muted="line_state == 'cancel'"/>
-                <field name="priority" widget="priority" optional="show"/>
+                <field name="priority" optional="show"/>
                 <field name="note" optional="show"/>
             </list>
         </field>
@@ -48,7 +48,7 @@
                 <field name="line_state"/>
                 <separator/>
                 <filter name="filter_pending" string="Pendientes" domain="[('line_state', 'in', ('draft', 'pending'))]"/>
-                <filter name="filter_in_progress" string="En Proceso / Asignadas" domain="[('line_state', 'in', ('partial_assigned', 'assigned', 'partially_done'))]"/>
+                <filter name="filter_in_progress" string="En Solicitud / En Proceso" domain="[('line_state', 'in', ('in_stock', 'in_purchase', 'in_mixed', 'partial_stock', 'partial_purchase', 'partial_mixed', 'partially_done'))]"/>
                 <filter name="filter_done" string="Suministradas" domain="[('line_state', '=', 'done')]"/>
                 <filter name="filter_in_custody" string="En Resguardo" domain="[('custody_state', '=', 'in_custody')]"/>
                 <group>

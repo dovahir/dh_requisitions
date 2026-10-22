@@ -267,7 +267,7 @@ class TestAuditEdgeCases(common.TransactionCase):
         req.action_approve()
 
         line = req.line_ids[0]
-        req.action_create_purchase_request()
+        req._create_purchase_request_lines()
 
         # Debe existir exactamente 1 allocation para la línea, no 2
         allocs = line.allocation_ids.filtered(lambda a: a.state != 'cancel')

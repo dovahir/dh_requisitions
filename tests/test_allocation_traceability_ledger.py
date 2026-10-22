@@ -188,7 +188,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         req.action_approve()
 
         line = req.line_ids[0]
-        req.action_create_purchase_request()
+        req._create_purchase_request_lines()
 
         # Verificar que la allocation de abastecimiento es stage='inbound'
         self.assertEqual(len(line.allocation_ids), 1)
@@ -284,6 +284,10 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         # Esto NO debe arrojar UserError("No hay partidas con saldo pendiente")
         action = req.action_create_purchase_request()
         self.assertTrue(action)
+        wizard = self.env['requisition.purchase.request.wizard'].with_context(
+            active_id=req.id, default_requisition_id=req.id
+        ).create({})
+        wizard.action_confirm()
 
         # 3. Validar que no se duplicó la asignación, sino que se vinculó a la existente
         self.assertEqual(len(line.allocation_ids), 1)
@@ -318,7 +322,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         line = req.line_ids[0]
 
         # 1. Crear solicitud de compra primero
-        req.action_create_purchase_request()
+        req._create_purchase_request_lines()
         self.assertEqual(len(line.allocation_ids), 1)
         alloc = line.allocation_ids[0]
         pr_line = alloc.purchase_request_line_id
