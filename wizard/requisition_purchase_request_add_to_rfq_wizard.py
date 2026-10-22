@@ -191,7 +191,7 @@ class RequisitionPurchaseRequestAddToRfqWizard(models.TransientModel):
                             'purchase_request_line_id': req_line.id,
                             'requisition_line_id': free_alloc.requisition_line_id.id if free_alloc.requisition_line_id else False,
                             'supply_request_line_id': free_alloc.supply_request_line_id.id if free_alloc.supply_request_line_id else False,
-                            'state': 'in_progress',
+                            'state': 'draft',
                         })
                 else:
                     supply_type = req_line.requisition_line_id.supply_type if req_line.requisition_line_id else 'consumption'

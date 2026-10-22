@@ -59,6 +59,7 @@ class Requisitions(models.Model):
         string="Solicita",
         required=True,
         tracking=True,
+        ondelete='restrict',
         default=lambda self: self.env.user.employee_id.id or False
     )
     department_id = fields.Many2one(
@@ -126,6 +127,7 @@ class Requisitions(models.Model):
         required=True,
         check_company=True,
         tracking=True,
+        ondelete='restrict',
         help="Almacén de destino donde se requiere el producto."
     )
 
@@ -391,7 +393,7 @@ class Requisitions(models.Model):
     def create(self, vals_list):
         for vals in vals_list:
             if vals.get('name', _('Nuevo')) == _('Nuevo'):
-                vals['name'] = self.env['ir.sequence'].next_by_code('requisitions') or _('Nuevo')
+                vals['name'] = self.env['ir.sequence'].sudo().next_by_code('requisitions') or _('Nuevo')
             self._inject_line_types(vals)
         return super().create(vals_list)
 
@@ -433,13 +435,14 @@ class Requisitions(models.Model):
             self.env.user.has_group('dh_requisitions.group_requisitions_manager')
         )
         for rec in self:
+            if rec.state not in ('draft', 'rejected'):
+                raise UserError(_("Solo se pueden confirmar requisiciones en estado Borrador o Rechazada."))
             # Validar que la requisición contenga al menos una línea
             if not rec.line_ids:
                 raise ValidationError(_("Debe agregar al menos un producto o servicio antes de solicitar aprobación."))
+            rec.write({'state': 'to_approve'})
             if rec.company_id.requisition_allow_auto_approval and is_approver:
                 rec.action_approve()
-            else:
-                rec.write({'state': 'to_approve'})
 
     def _update_state_from_lines(self):
         """Actualiza automáticamente el estado cabecera según el avance de sus líneas de suministro."""
@@ -460,16 +463,34 @@ class Requisitions(models.Model):
             elif any(l.line_state in ('assigned', 'partial_assigned') for l in active_lines):
                 if rec.state != 'in_progress':
                     rec.action_in_progress()
+            elif all(l.line_state == 'pending' for l in active_lines):
+                if rec.state in ('in_progress', 'partially_done'):
+                    rec.write({'state': 'approved'})
 
     def action_approve(self):
         if not (self.env.user.has_group('dh_requisitions.group_requisitions_approver') or
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
             raise UserError(_("Solo los usuarios con rol Aprobador o Administrador pueden aprobar requisiciones."))
-        self.write({
-            'state': 'approved',
-            'approved_by_id': self.env.user.id,
-            'date_approved': fields.Datetime.now(),
-        })
+        is_admin = self.env.user.has_group('dh_requisitions.group_requisitions_manager') or self.env.is_admin()
+        for rec in self:
+            if rec.state != 'to_approve':
+                raise UserError(_("Solo se pueden autorizar requisiciones en estado 'Por Aprobar'."))
+            if not rec.line_ids:
+                raise UserError(_("No se puede autorizar una requisición sin productos o servicios."))
+            if not is_admin and rec.user_id and rec.user_id != self.env.user:
+                raise UserError(_(
+                    "Solo el usuario designado como autorizador (%s) o un Administrador pueden autorizar esta requisición."
+                ) % rec.user_id.name)
+            is_requester = (rec.create_uid == self.env.user) or (rec.employee_id.user_id and rec.employee_id.user_id == self.env.user)
+            if is_requester and not is_admin and not rec.company_id.requisition_allow_auto_approval:
+                raise UserError(_(
+                    "La auto-aprobación está restringida por la política de la empresa. La requisición debe ser autorizada por un usuario diferente."
+                ))
+            rec.write({
+                'state': 'approved',
+                'approved_by_id': self.env.user.id,
+                'date_approved': fields.Datetime.now(),
+            })
 
     def action_reject_wizard(self):
         """Abre el asistente interactivo para rechazar la requisición e indicar el motivo."""
@@ -531,22 +552,42 @@ class Requisitions(models.Model):
         }
 
     def action_draft(self):
-        """Regresa la requisición a borrador y limpia los datos de rechazo y cancelación previos."""
-        self.write({
-            'state': 'draft',
-            'rejected_by_id': False,
-            'date_rejected': False,
-            'cancelled_by_id': False,
-            'date_cancelled': False,
-        })
-        self.line_ids._compute_quantities()
+        """Regresa la requisición a borrador, limpia datos de resolución previa y notifica a documentos abiertos."""
+        for rec in self:
+            rec.write({
+                'state': 'draft',
+                'rejected_by_id': False,
+                'date_rejected': False,
+                'cancelled_by_id': False,
+                'date_cancelled': False,
+            })
+            rec.line_ids._compute_quantities()
+
+            # Notificar en el chatter de documentos vinculados abiertos
+            msg_reopen = Markup(_(
+                "<strong>Aviso:</strong> La requisición <strong>%s</strong> ha sido regresada a borrador para modificaciones."
+            )) % escape(rec.name)
+
+            open_pickings = rec.picking_ids.filtered(lambda p: p.state not in ('done', 'cancel'))
+            for p in open_pickings:
+                p.message_post(body=msg_reopen, subtype_xmlid="mail.mt_note")
+
+            open_pos = rec.purchase_order_ids.filtered(lambda o: o.state in ('draft', 'sent', 'to approve'))
+            for po in open_pos:
+                po.message_post(body=msg_reopen, subtype_xmlid="mail.mt_note")
+
+            sr_requests = rec.line_ids.allocation_ids.mapped('supply_request_line_id.request_id').filtered(
+                lambda r: r.state not in ('done_exact', 'done_adjusted', 'cancel')
+            )
+            for sr in sr_requests:
+                sr.message_post(body=msg_reopen, subtype_xmlid="mail.mt_note")
 
     def action_create_service_rfq(self):
         """Genera una Solicitud de Cotización (RFQ de Compra) directa para las líneas de servicios pendientes."""
         self.ensure_one()
-        if not (self.env.user.has_group('purchase.group_purchase_manager') or
+        if not (self.env.user.has_group('purchase.group_purchase_user') and
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Solo los usuarios con rol Administrador de Compras o Administrador de Requisiciones pueden generar cotizaciones de servicios."))
+            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Compras para generar cotizaciones de servicios."))
 
         service_lines = self.service_line_ids.filtered(
             lambda l: l.line_state not in ('done', 'cancel') and l.qty_pending > 0
@@ -556,9 +597,10 @@ class Requisitions(models.Model):
 
         supplier = service_lines[0].product_id.seller_ids[:1].partner_id
         if not supplier:
-            supplier = self.env['res.partner'].search([('supplier_rank', '>', 0)], limit=1)
-        if not supplier:
-            raise UserError(_("No se encontró ningún contacto proveedor registrado en el sistema para asociar a la cotización."))
+            raise UserError(_(
+                "El servicio '%s' no cuenta con un proveedor asignado en su ficha de compras. "
+                "Por favor configure el proveedor en el producto antes de generar la cotización de servicios."
+            ) % service_lines[0].product_id.display_name)
 
         po_vals = {
             'partner_id': supplier.id,
@@ -617,9 +659,9 @@ class Requisitions(models.Model):
     def action_open_delivery_wizard(self):
         """Abre el asistente interactivo para generar despachos y entregas de almacén."""
         self.ensure_one()
-        if not (self.env.user.has_group('stock.group_stock_user') or
+        if not (self.env.user.has_group('stock.group_stock_user') and
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Solo el personal de inventario y los administradores de requisiciones tienen autorización para generar entregas de almacén."))
+            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Inventario para generar entregas de almacén."))
         if self.state not in ('approved', 'in_progress', 'partially_done'):
             raise UserError(_("Solo se pueden generar despachos para requisiciones aprobadas o en proceso."))
         eligible_lines = self.line_ids.filtered(
@@ -638,16 +680,19 @@ class Requisitions(models.Model):
         }
 
     def action_create_purchase_request(self):
-        """Genera líneas de solicitud de compra para materiales y herramientas con saldo pendiente."""
+        """Genera líneas de solicitud de compra para materiales, herramientas o servicios con saldo pendiente."""
         self.ensure_one()
+        if not (self.env.user.has_group('purchase.group_purchase_user') and
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
+            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Compras para generar solicitudes de compra."))
         if self.state not in ('approved', 'in_progress', 'partially_done'):
             raise UserError(_("Solo se pueden generar solicitudes de compra para requisiciones aprobadas o en proceso."))
 
         lines_to_buy = self.line_ids.filtered(
-            lambda l: l.line_type != 'service' and l.qty_pending > 0 and l.line_state not in ('done', 'cancel')
+            lambda l: l.qty_pending > 0 and l.line_state not in ('done', 'cancel')
         )
         if not lines_to_buy:
-            raise UserError(_("No hay partidas de materiales o herramientas con saldo pendiente para enviar a compra."))
+            raise UserError(_("No hay partidas con saldo pendiente para enviar a compra."))
 
         created_lines = self.env['requisition.purchase.request.line']
 
@@ -657,23 +702,6 @@ class Requisitions(models.Model):
         ], limit=1)
 
         is_destination_obra = bool(base_wh and self.warehouse_id.id != base_wh.id)
-        supply_request = False
-        if is_destination_obra:
-            supply_request = self.env['requisition.supply.request'].search([
-                ('company_id', '=', self.company_id.id),
-                ('warehouse_dest_id', '=', self.warehouse_id.id),
-                ('warehouse_origin_id', '=', base_wh.id),
-            ], limit=1, order='id desc')
-            if not supply_request:
-                supply_request = self.env['requisition.supply.request'].create({
-                    'company_id': self.company_id.id,
-                    'warehouse_origin_id': base_wh.id,
-                    'warehouse_dest_id': self.warehouse_id.id,
-                    'requisition_ids': [(4, self.id)],
-                    'notes': _("Generado automáticamente desde la requisición %s") % self.name,
-                })
-            elif self.id not in supply_request.requisition_ids.ids:
-                supply_request.requisition_ids = [(4, self.id)]
 
         for line in lines_to_buy:
             pr_line = self.env['requisition.purchase.request.line'].create({
@@ -687,12 +715,15 @@ class Requisitions(models.Model):
             created_lines |= pr_line
 
             supply_line = False
-            if supply_request:
-                supply_line = self.env['requisition.supply.request.line'].create({
-                    'request_id': supply_request.id,
+            if is_destination_obra and line.line_type != 'service':
+                # Crear partida en el pool de Pendientes de Envío (request_id=False) sin duplicar allocation
+                supply_line = self.env['requisition.supply.request.line'].with_context(skip_auto_allocation=True).create({
+                    'request_id': False,
                     'requisition_line_id': line.id,
                     'product_id': line.product_id.id,
                     'product_qty': line.qty_pending,
+                    'warehouse_dest_id': self.warehouse_id.id,
+                    'warehouse_origin_id': base_wh.id if base_wh else False,
                     'notes': line.note or '',
                 })
 
@@ -717,8 +748,8 @@ class Requisitions(models.Model):
         msg = Markup(_(
             "Se generaron <strong>%s</strong> partida(s) de Solicitud de Compra para seguimiento del área de compras."
         )) % len(created_lines)
-        if supply_request:
-            msg += Markup(_("<br/>Se programó la partida en la Solicitud de Suministro <strong>%s</strong> (Base a Obra).")) % escape(supply_request.name)
+        if is_destination_obra:
+            msg += Markup(_("<br/>Se registraron las partidas en el pool de <strong>Pendientes de Envío</strong> para posterior traslado Base a Obra."))
 
         self.message_post(body=msg, subtype_xmlid="mail.mt_note")
 
@@ -767,6 +798,9 @@ class Requisitions(models.Model):
     def action_open_supply_request_wizard(self):
         """Abre el asistente interactivo para seleccionar líneas de la requisición y programar el suministro desde almacén origen a obra."""
         self.ensure_one()
+        if not (self.env.user.has_group('stock.group_stock_user') and
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
+            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Inventario para solicitar suministros."))
         if self.state not in ('approved', 'in_progress', 'partially_done'):
             raise UserError(_("Solo se pueden generar solicitudes de suministro para requisiciones aprobadas o en proceso."))
         if not self.is_not_base_warehouse:

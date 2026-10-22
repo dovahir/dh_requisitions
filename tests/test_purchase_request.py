@@ -50,6 +50,7 @@ class TestPurchaseRequest(common.TransactionCase):
         cls.env.user.write({
             'group_ids': [
                 (4, cls.env.ref('dh_requisitions.group_requisitions_approver').id),
+                (4, cls.env.ref('dh_requisitions.group_requisitions_manager').id),
                 (4, cls.env.ref('purchase.group_purchase_user').id),
                 (4, cls.env.ref('purchase.group_purchase_manager').id),
             ]

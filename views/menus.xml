@@ -19,6 +19,13 @@
                   groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
                   sequence="20"/>
 
+        <menuitem id="menu_requisition_supply_pending_lines_main"
+                  name="Pendientes de Envío"
+                  parent="menu_requisitions_root"
+                  action="action_requisition_supply_pending_lines"
+                  groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
+                  sequence="25"/>
+
         <menuitem id="menu_requisition_purchase_request_line_main"
                   name="Solicitudes de Compra"
                   parent="menu_requisitions_root"
@@ -68,5 +75,12 @@
                   action="action_requisition_supply_request"
                   groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
                   sequence="10"/>
+
+        <menuitem id="menu_stock_requisition_supply_pending_lines"
+                  name="Pendientes de Envío"
+                  parent="menu_stock_supplies_category"
+                  action="action_requisition_supply_pending_lines"
+                  groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
+                  sequence="20"/>
     </data>
 </odoo>

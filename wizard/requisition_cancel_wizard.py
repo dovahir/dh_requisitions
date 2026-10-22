@@ -31,7 +31,31 @@ class RequisitionCancelWizard(models.TransientModel):
         if req.state in ('cancel', 'rejected', 'done'):
             raise UserError(_("No se puede cancelar una requisición en estado %s.") % req.state)
 
-        # Cancelar únicamente asignaciones en proceso o borrador; las ya completadas ('done')
+        # 1. Cancelar en cascada albaranes de almacén abiertos vinculados
+        open_pickings = req.picking_ids.filtered(lambda p: p.state not in ('done', 'cancel'))
+        supply_pickings = req.line_ids.allocation_ids.mapped('supply_request_line_id.request_id.picking_ids').filtered(
+            lambda p: p.state not in ('done', 'cancel')
+        )
+        all_pickings = open_pickings | supply_pickings
+        for picking in all_pickings:
+            picking.with_context(mail_notrack=True).action_cancel()
+            picking.message_post(
+                body=Markup(_("<strong>Albarán cancelado por cancelación de la Requisición %s</strong><br/><strong>Motivo:</strong> %s")) % (
+                    escape(req.name),
+                    escape(self.reason)
+                ),
+                subtype_xmlid="mail.mt_note"
+            )
+
+        # 2. Cancelar partidas de Solicitud de Compra pendientes vinculadas
+        pr_lines = req.purchase_request_line_ids.filtered(lambda l: l.state not in ('cancel', 'purchased'))
+        for pr_line in pr_lines:
+            try:
+                pr_line.sudo().action_cancel_line(cancel_action='close', reason=self.reason)
+            except Exception:
+                pr_line.sudo().write({'state': 'cancel'})
+
+        # 3. Cancelar únicamente asignaciones en proceso o borrador; las ya completadas ('done')
         # permanecen intactas para preservar el registro histórico de las entregas físicas.
         active_allocs = req.line_ids.allocation_ids.filtered(lambda a: a.state in ('draft', 'in_progress'))
         if active_allocs:

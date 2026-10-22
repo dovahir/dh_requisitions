@@ -412,12 +412,68 @@ class RequisitionPurchaseRequestLine(models.Model):
             action['res_id'] = pickings.id
         return action
 
+    has_pending_supply = fields.Boolean(
+        string="Registrado en Suministro",
+        compute='_compute_has_pending_supply',
+        help="Indica si esta partida ya cuenta con una línea de suministro o pendiente de envío."
+    )
+
+    @api.depends('allocation_ids.supply_request_line_id')
+    def _compute_has_pending_supply(self):
+        for rec in self:
+            rec.has_pending_supply = bool(rec.allocation_ids.mapped('supply_request_line_id'))
+
     def _check_purchase_request_permissions(self):
-        """Verifica que el usuario pertenezca al área de compras o administrador de requisiciones."""
-        if not (self.env.user.has_group('purchase.group_purchase_user') or
-                self.env.user.has_group('purchase.group_purchase_manager') or
+        """Verifica que el usuario pertenezca al área de compras Y administrador de requisiciones."""
+        is_purchase = (self.env.user.has_group('purchase.group_purchase_user') or
+                       self.env.user.has_group('purchase.group_purchase_manager'))
+        is_req_admin = self.env.user.has_group('dh_requisitions.group_requisitions_manager')
+        if not (is_purchase and is_req_admin):
+            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Compras para gestionar solicitudes de compra."))
+
+    def action_add_to_pending_supply(self):
+        """Permite al personal de inventario registrar la necesidad de traslado intermedio Base -> Obra en Pendientes de Envío."""
+        self.ensure_one()
+        if not (self.env.user.has_group('stock.group_stock_user') and
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Solo el personal del área de compras o administradores de requisiciones tienen autorización para gestionar solicitudes de compra."))
+            raise UserError(_("Se requiere pertenecer a Administradores de Requisiciones y al área de Inventario para registrar pendientes de envío."))
+
+        if self.product_id.type == 'service':
+            raise UserError(_("Las partidas de servicios no aplican para traslados físicos de suministro."))
+
+        base_wh = self.env['stock.warehouse'].search([
+            ('company_id', '=', self.company_id.id),
+            '|', ('code', '=', 'BASE'), ('name', 'ilike', 'base')
+        ], limit=1)
+
+        if not base_wh or self.warehouse_id == base_wh:
+            raise UserError(_("Esta solicitud ya tiene como destino el almacén Base o no se encontró un almacén Base configurado."))
+
+        existing_sr_line = self.env['requisition.supply.request.line'].search([
+            ('requisition_line_id', '=', self.requisition_line_id.id if self.requisition_line_id else False),
+            ('product_id', '=', self.product_id.id),
+            ('state', 'not in', ('cancel', 'done')),
+        ], limit=1)
+        if existing_sr_line:
+            raise UserError(_("Esta partida ya se encuentra registrada en Suministro / Pendientes de Envío."))
+
+        sr_line = self.env['requisition.supply.request.line'].create({
+            'request_id': False,
+            'requisition_line_id': self.requisition_line_id.id if self.requisition_line_id else False,
+            'product_id': self.product_id.id,
+            'product_qty': self.product_qty,
+            'warehouse_dest_id': self.warehouse_id.id,
+            'warehouse_origin_id': base_wh.id,
+            'notes': _("Vinculado desde Solicitud de Compra: %s") % self.display_name,
+        })
+        if self.allocation_id:
+            self.allocation_id.supply_request_line_id = sr_line.id
+
+        self.message_post(
+            body=Markup(_("Se incorporó la partida a <strong>Pendientes de Envío</strong> para traslado a la obra %s.")) % escape(self.warehouse_id.name),
+            subtype_xmlid="mail.mt_note"
+        )
+        return True
 
     def action_open_add_to_rfq_wizard(self):
         """Abre el asistente para agregar las líneas seleccionadas a una RFQ."""

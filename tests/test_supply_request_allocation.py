@@ -62,7 +62,11 @@ class TestSupplyRequestAllocation(common.TransactionCase):
             'company_id': cls.company.id,
         })
         cls.env.user.write({
-            'group_ids': [(4, cls.env.ref('dh_requisitions.group_requisitions_approver').id)]
+            'group_ids': [
+                (4, cls.env.ref('dh_requisitions.group_requisitions_approver').id),
+                (4, cls.env.ref('dh_requisitions.group_requisitions_manager').id),
+                (4, cls.env.ref('stock.group_stock_user').id),
+            ]
         })
         cls.env['stock.quant'].create({
             'product_id': cls.product.id,
@@ -83,6 +87,7 @@ class TestSupplyRequestAllocation(common.TransactionCase):
                 'line_type': 'material',
             })],
         })
+        requisition.action_confirm()
         requisition.action_approve()
         req_line = requisition.line_ids[0]
         self.assertEqual(req_line.qty_pending, 10.0)
@@ -128,6 +133,7 @@ class TestSupplyRequestAllocation(common.TransactionCase):
                 'line_type': 'material',
             })],
         })
+        requisition.action_confirm()
         requisition.action_approve()
         req_line = requisition.line_ids[0]
 
@@ -240,6 +246,7 @@ class TestSupplyRequestAllocation(common.TransactionCase):
                 'line_type': 'material',
             })],
         })
+        requisition.action_confirm()
         requisition.action_approve()
         req_line = requisition.line_ids[0]
 

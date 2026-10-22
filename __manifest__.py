@@ -16,6 +16,7 @@ Características principales:
 - Solicitudes de suministro entre almacenes para abastecer obras y proyectos.
 - Configuración de rutas y traslados de material entre almacenes.
 - Consolidación de solicitudes a cotizaciones de compra con seguimiento de entregas y cancelaciones.
+- Gestión de partidas pendientes de envío a obra, división de cantidades y sugerencia de compra por desabasto en base.
     """,
     "author": "Aldahir",
     "maintainer": "Aldahir",
@@ -30,23 +31,26 @@ Características principales:
         "views/stock_warehouse_views.xml",
         "wizard/requisition_warehouse_setup_wizard_views.xml",
         "views/res_config_settings_views.xml",
-        "views/menus.xml",
         "views/requisition_supply_request_views.xml",
         "views/requisition_purchase_request_line_views.xml",
         "views/requisitions_views.xml",
         "views/requisitions_line_views.xml",
         "views/product_category_views.xml",
         "views/stock_picking_views.xml",
+        "views/purchase_order_views.xml",
         "wizard/requisition_reject_wizard_views.xml",
         "wizard/requisition_cancel_wizard_views.xml",
         "wizard/requisition_delivery_wizard_views.xml",
         "wizard/requisition_supply_request_wizard_views.xml",
         "wizard/requisition_supply_request_block_wizard_views.xml",
         "wizard/requisition_supply_request_cancel_wizard_views.xml",
+        "wizard/requisition_supply_request_line_split_wizard_views.xml",
+        "wizard/requisition_supply_request_add_pending_wizard_views.xml",
+        "wizard/requisition_supply_request_assign_pending_wizard_views.xml",
         "wizard/requisition_purchase_request_add_to_rfq_wizard_views.xml",
+        "views/menus.xml",
         "report/paper_format.xml",
         "report/requisition_supply_transfer_report.xml",
-        "views/purchase_order_views.xml",
     ],
 
 

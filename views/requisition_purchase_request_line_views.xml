@@ -53,6 +53,14 @@
                        decoration-primary="state == 'partially_purchased'"
                        decoration-success="state == 'purchased'"
                        decoration-danger="state == 'cancel'"/>
+                <field name="has_pending_supply" column_invisible="1"/>
+                <button name="action_add_to_pending_supply"
+                        type="object"
+                        icon="fa-truck"
+                        class="text-info"
+                        title="Agregar a Pendientes de Envío para traslado Base -> Obra"
+                        invisible="has_pending_supply or state in ('cancel', 'purchased')"
+                        groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
                 <button name="action_cancel_line"
                         type="object"
                         icon="fa-times-circle"
@@ -79,6 +87,13 @@
                             icon="fa-shopping-cart"
                             invisible="state in ('cancel', 'purchased')"
                             groups="purchase.group_purchase_user,purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
+                    <button name="action_add_to_pending_supply"
+                            string="Agregar a Pendientes de Envío"
+                            type="object"
+                            class="btn-secondary"
+                            icon="fa-truck"
+                            invisible="has_pending_supply or state in ('cancel', 'purchased')"
+                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_cancel_line"
                             string="Cancelar Partida"
                             type="object"
@@ -90,6 +105,7 @@
                            statusbar_visible="pending,in_progress,to_receive,partially_purchased,purchased"/>
                 </header>
                 <sheet>
+                    <field name="has_pending_supply" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_open_purchase_orders"
                                 type="object"

@@ -4,6 +4,7 @@ from markupsafe import Markup, escape
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
+from odoo.tools import float_round
 
 
 class RequisitionSupplyRequest(models.Model):
@@ -299,7 +300,10 @@ class RequisitionSupplyRequest(models.Model):
         for vals in vals_list:
             if vals.get('name', _('Nuevo')) == _('Nuevo'):
                 vals['name'] = self.env['ir.sequence'].next_by_code('requisition.supply.request') or _('Nuevo')
-        return super().create(vals_list)
+        records = super().create(vals_list)
+        records.line_ids._compute_state()
+        records.line_ids._compute_warehouses()
+        return records
 
     def copy(self, default=None):
         default = dict(default or {})
@@ -317,10 +321,28 @@ class RequisitionSupplyRequest(models.Model):
     # ACCIONES DE WORKFLOW Y ESTADOS
     # -------------------------------------------------------------------------
     def _check_supply_request_permissions(self):
-        """Verifica que el usuario pertenezca al área de inventario o administrador de requisiciones."""
-        if not (self.env.user.has_group('stock.group_stock_user') or
+        """Verifica que el usuario pertenezca al área de inventario Y administrador de requisiciones."""
+        if not (self.env.user.has_group('stock.group_stock_user') and
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Solo el personal de inventario o administradores de requisiciones tienen autorización para gestionar solicitudes de suministro."))
+            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Inventario para gestionar solicitudes de suministro."))
+
+    def action_open_add_pending_wizard(self):
+        """Abre el asistente para incorporar partidas desde el pool de Pendientes de Envío a esta solicitud."""
+        self.ensure_one()
+        self._check_supply_request_permissions()
+        if self.state != 'draft':
+            raise UserError(_("Solo se pueden incorporar partidas pendientes a solicitudes en estado Borrador."))
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Agregar desde Pendientes de Envío'),
+            'res_model': 'requisition.supply.request.add.pending.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_supply_request_id': self.id,
+                'active_id': self.id,
+            },
+        }
 
     def action_button_draft(self):
         """Permite regresar a borrador cuando la entrega fue cancelada o devuelta."""
@@ -474,18 +496,42 @@ class RequisitionSupplyRequest(models.Model):
             move = move[0]
 
             move.move_line_ids.unlink()
-            for lot in line.lot_ids:
-                qty_line = 1.0 if line.has_tracking == 'serial' else (move.product_uom_qty / len(line.lot_ids))
-                self.env['stock.move.line'].create({
-                    'move_id': move.id,
-                    'picking_id': picking.id,
-                    'product_id': line.product_id.id,
-                    'lot_id': lot.id,
-                    'quantity': qty_line,
-                    'location_id': move.location_id.id,
-                    'location_dest_id': move.location_dest_id.id,
-                    'company_id': self.company_id.id,
-                })
+            lots = line.lot_ids
+            num_lots = len(lots)
+            if line.has_tracking == 'serial':
+                for lot in lots:
+                    self.env['stock.move.line'].create({
+                        'move_id': move.id,
+                        'picking_id': picking.id,
+                        'product_id': line.product_id.id,
+                        'lot_id': lot.id,
+                        'quantity': 1.0,
+                        'location_id': move.location_id.id,
+                        'location_dest_id': move.location_dest_id.id,
+                        'company_id': self.company_id.id,
+                    })
+            else:
+                uom_rounding = line.product_uom_id.rounding or 0.01
+                total_qty = move.product_uom_qty
+                allocated_so_far = 0.0
+                for idx, lot in enumerate(lots):
+                    if idx == num_lots - 1:
+                        qty_line = max(0.0, float_round(total_qty - allocated_so_far, precision_rounding=uom_rounding))
+                    else:
+                        raw_qty = total_qty / num_lots
+                        qty_line = float_round(raw_qty, precision_rounding=uom_rounding)
+                        allocated_so_far += qty_line
+
+                    self.env['stock.move.line'].create({
+                        'move_id': move.id,
+                        'picking_id': picking.id,
+                        'product_id': line.product_id.id,
+                        'lot_id': lot.id,
+                        'quantity': qty_line,
+                        'location_id': move.location_id.id,
+                        'location_dest_id': move.location_dest_id.id,
+                        'company_id': self.company_id.id,
+                    })
 
     def _sync_supply_chain_allocations(self, delivery_picking):
         """Vincula los movimientos de entrega con la matriz supply.chain.allocation."""

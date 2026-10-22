@@ -51,7 +51,8 @@
                     <button name="action_cancel" string="Cancelar" type="object"
                             invisible="state != 'draft'"/>
                     <button name="action_draft" string="Volver a Borrador" type="object"
-                            invisible="state not in ('cancel', 'rejected')"/>
+                            invisible="state not in ('cancel', 'rejected', 'approved', 'in_progress', 'partially_done')"
+                            groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <!-- Botones operativos en estado aprobado / en proceso ordenados -->
                     <button name="action_open_delivery_wizard" string="Entregar Productos" type="object"
                             class="btn-primary"
@@ -59,9 +60,12 @@
                             groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_open_supply_request_wizard" string="Solicitar Suministro" type="object"
                             class="btn btn-secondary"
-                            invisible="state not in ('approved', 'in_progress', 'partially_done') or not is_not_base_warehouse or not has_deliverable_products"/>
+                            invisible="state not in ('approved', 'in_progress', 'partially_done') or not is_not_base_warehouse or not has_deliverable_products"
+                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_create_purchase_request" string="Solicitar Compra" type="object"
-                            class="btn btn-secondary" invisible="state not in ('approved', 'in_progress', 'partially_done')"/>
+                            class="btn btn-secondary"
+                            invisible="state not in ('approved', 'in_progress', 'partially_done')"
+                            groups="purchase.group_purchase_user,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_create_service_rfq" string="Crear RFQ de Servicios" type="object"
                             class="btn btn-secondary"
                             invisible="state not in ('approved', 'in_progress') or not has_services"

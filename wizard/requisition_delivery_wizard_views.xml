@@ -7,7 +7,12 @@
         <field name="arch" type="xml">
             <form string="Generar Despacho y Entrega">
                 <sheet>
-                    <div class="alert alert-info" role="alert">
+                    <field name="has_stock_warnings" invisible="1"/>
+                    <div class="alert alert-warning" role="alert" invisible="not has_stock_warnings">
+                        <i class="fa fa-exclamation-triangle me-1" title="Advertencia de disponibilidad"/>
+                        <strong>Aviso de Disponibilidad:</strong> Una o más partidas a surtir superan el stock físico disponible en la ubicación origen. El albarán se generará en estado de espera sin bloquear el flujo operativo.
+                    </div>
+                    <div class="alert alert-info" role="alert" invisible="has_stock_warnings">
                         Seleccione las cantidades que desea surtir en este despacho. Las líneas con cantidad cero serán ignoradas y permanecerán pendientes en la requisición.
                     </div>
                     <group>
@@ -27,11 +32,15 @@
                             <field name="line_ids">
                                 <list editable="bottom" create="0" delete="0">
                                     <field name="requisition_line_id" column_invisible="1"/>
+                                    <field name="has_insufficient_stock" column_invisible="1"/>
                                     <field name="product_id"/>
                                     <field name="product_uom_id"/>
                                     <field name="qty_requested"/>
                                     <field name="qty_pending"/>
-                                    <field name="qty_to_deliver"/>
+                                    <field name="qty_available_stock" string="Stock Disp."
+                                           decoration-danger="has_insufficient_stock"
+                                           decoration-success="not has_insufficient_stock"/>
+                                    <field name="qty_to_deliver" decoration-warning="has_insufficient_stock"/>
                                 </list>
                             </field>
                         </page>

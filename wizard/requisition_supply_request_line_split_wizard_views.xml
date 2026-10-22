@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_requisition_supply_request_line_split_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.supply.request.line.split.wizard.form</field>
+        <field name="model">requisition.supply.request.line.split.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Dividir Partida / Dejar Saldo Pendiente">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        Indique la cantidad que efectivamente se enviará en la Solicitud de Suministro actual. El saldo restante se creará automáticamente como una nueva partida en el pool de <strong>Pendientes de Envío</strong>.
+                    </div>
+                    <group>
+                        <group string="Detalle de Producto">
+                            <field name="line_id" invisible="1"/>
+                            <field name="product_id" options="{'no_open': True}"/>
+                            <field name="product_uom_id" options="{'no_open': True}"/>
+                            <field name="total_qty" string="Demanda Total"/>
+                        </group>
+                        <group string="Distribución de Cantidades">
+                            <field name="qty_to_send"/>
+                            <field name="qty_remaining_pending" decoration-bf="1" decoration-info="1"/>
+                        </group>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm_split" string="Dividir y Dejar Saldo Pendiente" type="object" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_requisition_supply_request_line_split_wizard" model="ir.actions.act_window">
+        <field name="name">Dividir Partida</field>
+        <field name="res_model">requisition.supply.request.line.split.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

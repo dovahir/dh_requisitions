@@ -54,6 +54,15 @@ class RequisitionDeliveryWizard(models.TransientModel):
         'wizard_id',
         string="Partidas a Despachar"
     )
+    has_stock_warnings = fields.Boolean(
+        string="Tiene Faltantes de Stock",
+        compute='_compute_has_stock_warnings'
+    )
+
+    @api.depends('line_ids.has_insufficient_stock')
+    def _compute_has_stock_warnings(self):
+        for wiz in self:
+            wiz.has_stock_warnings = any(l.has_insufficient_stock for l in wiz.line_ids)
 
     @api.model
     def default_get(self, fields_list):
@@ -181,6 +190,16 @@ class RequisitionDeliveryWizard(models.TransientModel):
             subtype_xmlid="mail.mt_note"
         )
 
+        if self.has_stock_warnings:
+            self.requisition_id.message_post(
+                body=Markup(_(
+                    "<strong>Aviso Informativo de Disponibilidad:</strong> La entrega <strong>%s</strong> fue generada "
+                    "con partidas que exceden el stock disponible actual en la ubicación. El albarán queda registrado en espera "
+                    "de disponibilidad física sin bloquear el flujo."
+                )) % escape(picking.name),
+                subtype_xmlid="mail.mt_note"
+            )
+
         return {
             'name': _('Albarán de Despacho'),
             'type': 'ir.actions.act_window',
@@ -227,8 +246,32 @@ class RequisitionDeliveryWizardLine(models.TransientModel):
         string="Saldo Pendiente",
         readonly=True
     )
+    qty_available_stock = fields.Float(
+        string="Stock Disponible",
+        compute='_compute_stock_availability',
+        digits='Product Unit of Measure'
+    )
+    has_insufficient_stock = fields.Boolean(
+        string="Sin Stock Suficiente",
+        compute='_compute_stock_availability'
+    )
     qty_to_deliver = fields.Float(
         string="Cantidad a Surtir",
         required=True,
         default=0.0
     )
+
+    @api.depends('product_id', 'wizard_id.location_id', 'qty_to_deliver')
+    def _compute_stock_availability(self):
+        for line in self:
+            loc = line.wizard_id.location_id
+            if line.product_id and loc:
+                quants = self.env['stock.quant'].search([
+                    ('product_id', '=', line.product_id.id),
+                    ('location_id', 'child_of', loc.id),
+                ])
+                avail = sum(quants.mapped('quantity')) - sum(quants.mapped('reserved_quantity'))
+                line.qty_available_stock = max(0.0, avail)
+            else:
+                line.qty_available_stock = 0.0
+            line.has_insufficient_stock = (line.qty_to_deliver > line.qty_available_stock)

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_requisition_supply_request_assign_pending_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.supply.request.assign.pending.wizard.form</field>
+        <field name="model">requisition.supply.request.assign.pending.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Asignar Partidas a Solicitud de Suministro">
+                <sheet>
+                    <div class="alert alert-info" role="alert">
+                        Seleccione el método de asignación para las partidas pendientes elegidas. Todas las partidas deben compartir el mismo almacén destino de obra.
+                    </div>
+                    <group>
+                        <group string="Modalidad de Asignación">
+                            <field name="action_type" widget="radio"/>
+                            <field name="company_id" invisible="1"/>
+                            <field name="warehouse_dest_id" options="{'no_open': True}"/>
+                        </group>
+                        <group string="Destino de las Partidas">
+                            <field name="supply_request_id" options="{'no_create': True}"
+                                   invisible="action_type != 'existing'"
+                                   required="action_type == 'existing'"/>
+                            <field name="warehouse_origin_id" options="{'no_create': True}"
+                                   invisible="action_type != 'new'"
+                                   required="action_type == 'new'"/>
+                            <field name="notes" placeholder="Observaciones o notas para la solicitud..."
+                                   invisible="action_type != 'new'"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Partidas a Asignar" name="lines_page">
+                            <field name="pending_line_ids" readonly="1">
+                                <list>
+                                    <field name="product_id"/>
+                                    <field name="product_uom_id"/>
+                                    <field name="product_qty"/>
+                                    <field name="requester_name"/>
+                                    <field name="requisition_id"/>
+                                    <field name="notes"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" string="Confirmar Asignación" type="object" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_requisition_supply_request_assign_pending_wizard" model="ir.actions.act_window">
+        <field name="name">Asignar a Solicitud de Suministro</field>
+        <field name="res_model">requisition.supply.request.assign.pending.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="dh_requisitions.model_requisition_supply_request_line"/>
+        <field name="binding_view_types">list</field>
+    </record>
+</odoo>

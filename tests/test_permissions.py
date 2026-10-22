@@ -137,23 +137,34 @@ class TestRequisitionsPermissions(common.TransactionCase):
         req.action_confirm()
         req.with_user(self.user_aprobador).action_approve()
 
-        # Usuario solicitante (sin stock) no puede abrir asistente de entregas
+        # Usuario solicitante (sin stock ni manager) no puede abrir asistente de entregas
         with self.assertRaises(UserError):
             req.with_user(self.user_solicitante).action_open_delivery_wizard()
 
-        # Usuario con stock sí puede
-        user_stock = self.env['res.users'].create({
-            'name': 'Almacenista Test',
-            'login': 'almacen_test@example.com',
+        # Usuario solo con inventario (sin Admin Requisiciones) NO debe poder
+        user_only_stock = self.env['res.users'].create({
+            'name': 'Almacenista Solo Stock Test',
+            'login': 'solo_stock_test@example.com',
             'company_id': self.company.id,
             'company_ids': [(6, 0, [self.company.id])],
-            'group_ids': [(6, 0, [self.env.ref('base.group_user').id, self.group_stock.id, self.group_user.id])],
+            'group_ids': [(6, 0, [self.env.ref('base.group_user').id, self.group_stock.id])],
         })
-        res = req.with_user(user_stock).action_open_delivery_wizard()
+        with self.assertRaises(UserError):
+            req.with_user(user_only_stock).action_open_delivery_wizard()
+
+        # Usuario con Inventario Y Administrador de Requisiciones SÍ puede
+        user_stock_and_manager = self.env['res.users'].create({
+            'name': 'Almacenista Manager Test',
+            'login': 'almacen_mgr_test@example.com',
+            'company_id': self.company.id,
+            'company_ids': [(6, 0, [self.company.id])],
+            'group_ids': [(6, 0, [self.env.ref('base.group_user').id, self.group_stock.id, self.group_manager.id])],
+        })
+        res = req.with_user(user_stock_and_manager).action_open_delivery_wizard()
         self.assertEqual(res.get('res_model'), 'requisition.delivery.wizard')
 
     def test_04_supply_request_actions_restricted(self):
-        """Valida que las acciones operativas de solicitud de suministro requieran permisos de inventario."""
+        """Valida que las acciones operativas de solicitud de suministro requieran permisos conjuntos de inventario y admin req."""
         supply_req = self.env['requisition.supply.request'].create({
             'company_id': self.company.id,
             'warehouse_origin_id': self.warehouse.id,
@@ -164,15 +175,26 @@ class TestRequisitionsPermissions(common.TransactionCase):
                 'product_qty': 5.0,
             })],
         })
-        # Usuario solicitante no puede crear entrega
+        # Usuario solicitante no puede crear entrega ni hacer corte
         with self.assertRaises(UserError):
             supply_req.with_user(self.user_solicitante).action_create_delivery()
 
         with self.assertRaises(UserError):
             supply_req.with_user(self.user_solicitante).action_open_block_wizard()
 
+        # Usuario solo con stock no puede
+        user_only_stock = self.env['res.users'].create({
+            'name': 'Solo Stock Supply Test',
+            'login': 'solo_stock_supply@example.com',
+            'company_id': self.company.id,
+            'company_ids': [(6, 0, [self.company.id])],
+            'group_ids': [(6, 0, [self.env.ref('base.group_user').id, self.group_stock.id])],
+        })
+        with self.assertRaises(UserError):
+            supply_req.with_user(user_only_stock).action_create_delivery()
+
     def test_05_purchase_request_actions_restricted(self):
-        """Valida que añadir a RFQ requiera permisos de compras o admin de requisiciones."""
+        """Valida que gestionar solicitudes de compra requiera permisos conjuntos de compras y admin de requisiciones."""
         pr_line = self.env['requisition.purchase.request.line'].create({
             'product_id': self.product.id,
             'product_uom_id': self.product.uom_id.id,
@@ -185,3 +207,14 @@ class TestRequisitionsPermissions(common.TransactionCase):
 
         with self.assertRaises(UserError):
             pr_line.with_user(self.user_solicitante).action_cancel_line()
+
+        # Usuario solo con compras sin admin req no puede
+        user_only_purchase = self.env['res.users'].create({
+            'name': 'Solo Compras Test',
+            'login': 'solo_compras_test@example.com',
+            'company_id': self.company.id,
+            'company_ids': [(6, 0, [self.company.id])],
+            'group_ids': [(6, 0, [self.env.ref('base.group_user').id, self.group_purchase.id])],
+        })
+        with self.assertRaises(UserError):
+            pr_line.with_user(user_only_purchase).action_open_add_to_rfq_wizard()

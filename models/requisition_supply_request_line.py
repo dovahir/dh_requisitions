@@ -20,17 +20,39 @@ class RequisitionSupplyRequestLine(models.Model):
     request_id = fields.Many2one(
         'requisition.supply.request',
         string='Solicitud de Suministro',
-        required=True,
-        ondelete='cascade',
+        required=False,
+        ondelete='set null',
         index=True
     )
     company_id = fields.Many2one(
         'res.company',
-        related='request_id.company_id',
+        compute='_compute_company_id',
         string='Compañía',
         store=True,
-        readonly=True,
+        readonly=False,
+        precompute=True,
+        default=lambda self: self.env.company,
         index=True
+    )
+    warehouse_dest_id = fields.Many2one(
+        'stock.warehouse',
+        string='Almacén Destino (Obra)',
+        compute='_compute_warehouses',
+        store=True,
+        readonly=False,
+        precompute=True,
+        index=True,
+        help="Almacén de obra hacia donde se destina el suministro."
+    )
+    warehouse_origin_id = fields.Many2one(
+        'stock.warehouse',
+        string='Almacén Origen (Base)',
+        compute='_compute_warehouses',
+        store=True,
+        readonly=False,
+        precompute=True,
+        index=True,
+        help="Almacén base/central desde donde se surtirá el material a la obra."
     )
     requisition_line_id = fields.Many2one(
         'requisitions.line',
@@ -156,12 +178,79 @@ class RequisitionSupplyRequestLine(models.Model):
         store=True,
         digits='Product Unit of Measure'
     )
+    qty_base_available = fields.Float(
+        string='Stock en Base',
+        compute='_compute_base_stock',
+        digits='Product Unit of Measure',
+        help="Stock disponible en el almacén Base/Central de origen."
+    )
+    suggest_purchase = fields.Boolean(
+        string='Sugerir Compra',
+        compute='_compute_base_stock',
+        store=True,
+        help="Indica si el stock disponible en Base es menor que la cantidad requerida."
+    )
     state = fields.Selection([
-        ('draft', 'Borrador'),
+        ('pending_assignment', 'Pendiente de Envío'),
+        ('draft', 'Asignado a Solicitud'),
         ('in_progress', 'En Tránsito / Proceso'),
         ('done', 'Suministrado'),
         ('cancel', 'Cancelado'),
-    ], string='Estado de Partida', compute='_compute_state', store=True, default='draft', index=True)
+    ], string='Estado de Partida', default='pending_assignment', compute='_compute_state', store=True, readonly=False, precompute=True, index=True)
+
+    @api.depends('request_id.company_id', 'requisition_line_id.company_id')
+    def _compute_company_id(self):
+        for line in self:
+            if line.request_id and line.request_id.company_id:
+                line.company_id = line.request_id.company_id
+            elif line.requisition_line_id and line.requisition_line_id.company_id:
+                line.company_id = line.requisition_line_id.company_id
+            else:
+                line.company_id = line.company_id or self.env.company
+
+    @api.depends('request_id.warehouse_dest_id', 'request_id.warehouse_origin_id', 'requisition_id.warehouse_id', 'company_id')
+    def _compute_warehouses(self):
+        for line in self:
+            if line.request_id:
+                line.warehouse_dest_id = line.request_id.warehouse_dest_id
+                line.warehouse_origin_id = line.request_id.warehouse_origin_id
+            elif line.requisition_id and line.requisition_id.warehouse_id:
+                line.warehouse_dest_id = line.requisition_id.warehouse_id
+            else:
+                line.warehouse_dest_id = line.warehouse_dest_id or False
+
+            if not line.request_id:
+                if not line.warehouse_origin_id:
+                    company = line.company_id or self.env.company
+                    base_wh = self.env['stock.warehouse'].search([
+                        ('company_id', '=', company.id),
+                        '|', ('code', 'ilike', '%base%'), ('name', 'ilike', '%base%')
+                    ], limit=1)
+                    if not base_wh:
+                        base_wh = self.env['stock.warehouse'].search([('company_id', '=', company.id)], limit=1) or self.env['stock.warehouse'].search([], limit=1)
+                    line.warehouse_origin_id = base_wh.id if base_wh else False
+                else:
+                    line.warehouse_origin_id = line.warehouse_origin_id
+
+    @api.depends('product_id', 'warehouse_origin_id', 'product_qty')
+    def _compute_base_stock(self):
+        for line in self:
+            if not line.product_id or not line.warehouse_origin_id:
+                line.qty_base_available = 0.0
+                line.suggest_purchase = False
+                continue
+            lot_loc = line.warehouse_origin_id.lot_stock_id
+            if not lot_loc:
+                line.qty_base_available = 0.0
+                line.suggest_purchase = False
+                continue
+            quants = self.env['stock.quant'].search([
+                ('product_id', '=', line.product_id.id),
+                ('location_id', 'child_of', lot_loc.id),
+            ])
+            avail = sum(quants.mapped('quantity')) - sum(quants.mapped('reserved_quantity'))
+            line.qty_base_available = max(0.0, avail)
+            line.suggest_purchase = (line.qty_base_available < line.product_qty)
 
     @api.depends('allocation_ids')
     def _compute_allocation_id(self):
@@ -183,17 +272,22 @@ class RequisitionSupplyRequestLine(models.Model):
             line.qty_in_transit = sum(active_allocs.filtered(lambda a: a.state in ('draft', 'in_progress')).mapped('open_qty'))
             line.qty_cancelled = sum(line.allocation_ids.filtered(lambda a: a.state == 'cancel').mapped('cancelled_qty'))
 
-    @api.depends('request_id.state', 'allocation_ids.state', 'qty_done', 'product_qty')
+    @api.depends('request_id', 'request_id.state', 'allocation_ids.state', 'qty_done', 'product_qty')
     def _compute_state(self):
         for line in self:
-            if line.request_id and line.request_id.state == 'cancel':
+            if not line.request_id:
+                cancelled_alloc = line.allocation_ids and all(a.state == 'cancel' for a in line.allocation_ids)
+                line.state = 'cancel' if cancelled_alloc else 'pending_assignment'
+            elif line.request_id.state == 'cancel':
                 line.state = 'cancel'
-            elif line.request_id and line.request_id.state in ('done_exact', 'done_partial', 'done_adjusted'):
+            elif line.request_id.state in ('done_exact', 'done_partial', 'done_adjusted'):
                 line.state = 'done' if (line.product_qty > 0 and line.qty_done >= line.product_qty) else 'in_progress'
-            elif line.request_id and line.request_id.state in ('in_transit', 'delivery_created'):
+            elif line.request_id.state in ('in_transit', 'delivery_created'):
                 line.state = 'in_progress'
             else:
                 line.state = 'draft'
+
+
 
     # -------------------------------------------------------------------------
     # CONSTRAINS
@@ -228,7 +322,7 @@ class RequisitionSupplyRequestLine(models.Model):
     def _compute_available_lot_ids(self):
         """Calcula los lotes/series disponibles en la ubicación origen de la solicitud de suministro de forma vectorizada."""
         trackable_lines = self.filtered(
-            lambda l: l.product_id and l.product_id.tracking != 'none' and l.request_id.location_id
+            lambda l: l.product_id and l.product_id.tracking != 'none' and l.request_id and l.request_id.location_id
         )
         (self - trackable_lines).available_lot_ids = False
         if not trackable_lines:
@@ -297,6 +391,7 @@ class RequisitionSupplyRequestLine(models.Model):
     @api.model_create_multi
     def create(self, vals_list):
         records_to_create = []
+        consolidated_records = self.browse()
         for vals in vals_list:
             req_id = vals.get('request_id')
             prod_id = vals.get('product_id')
@@ -304,59 +399,64 @@ class RequisitionSupplyRequestLine(models.Model):
             qty = vals.get('product_qty', 0.0)
             lot_ids = vals.get('lot_ids', [])
 
-            # Buscar si existe una partida compatible para consolidar cantidades
-            domain = [('request_id', '=', req_id), ('product_id', '=', prod_id)]
-            if req_line_id:
-                domain.append(('requisition_line_id', '=', req_line_id))
-            else:
-                domain.append(('requisition_line_id', '=', False))
+            # Solo consolidar si la partida pertenece a una Solicitud de Suministro específica.
+            # Las partidas sin solicitud (pool de pendientes de envío) se tratan como registros independientes.
+            if req_id and prod_id:
+                domain = [('request_id', '=', req_id), ('product_id', '=', prod_id)]
+                if req_line_id:
+                    domain.append(('requisition_line_id', '=', req_line_id))
+                else:
+                    domain.append(('requisition_line_id', '=', False))
 
-            existing = self.search(domain, limit=1)
-            if existing:
-                existing.product_qty += qty
-                for alloc in existing.allocation_ids.filtered(lambda a: a.state != 'cancel'):
-                    alloc.requested_qty = existing.product_qty
-                    alloc._sync_origin_document_status()
-                if lot_ids:
-                    # Extraer IDs de lotes
-                    new_lot_ids = []
-                    if isinstance(lot_ids, list):
-                        for cmd in lot_ids:
-                            if isinstance(cmd, (tuple, list)):
-                                if cmd[0] == 6:
-                                    new_lot_ids.extend(cmd[2])
-                                elif cmd[0] == 4:
-                                    new_lot_ids.append(cmd[1])
-                            elif isinstance(cmd, int):
-                                new_lot_ids.append(cmd)
-                    merged = list(set(existing.lot_ids.ids + new_lot_ids))
-                    existing.write({'lot_ids': [(6, 0, merged)]})
-                if 'notes' in vals and vals['notes']:
-                    existing.notes = (existing.notes or '') + (" | " if existing.notes else "") + vals['notes']
-                continue
+                existing = self.search(domain, limit=1)
+                if existing:
+                    existing.product_qty += qty
+                    for alloc in existing.allocation_ids.filtered(lambda a: a.state != 'cancel'):
+                        alloc.requested_qty = existing.product_qty
+                        alloc._sync_origin_document_status()
+                    if lot_ids:
+                        new_lot_ids = []
+                        if isinstance(lot_ids, list):
+                            for cmd in lot_ids:
+                                if isinstance(cmd, (tuple, list)):
+                                    if cmd[0] == 6:
+                                        new_lot_ids.extend(cmd[2])
+                                    elif cmd[0] == 4:
+                                        new_lot_ids.append(cmd[1])
+                                elif isinstance(cmd, int):
+                                    new_lot_ids.append(cmd)
+                        merged = list(set(existing.lot_ids.ids + new_lot_ids))
+                        existing.write({'lot_ids': [(6, 0, merged)]})
+                    if 'notes' in vals and vals['notes']:
+                        existing.notes = (existing.notes or '') + (" | " if existing.notes else "") + vals['notes']
+                    consolidated_records |= existing
+                    continue
 
             records_to_create.append(vals)
 
         created_records = super().create(records_to_create)
+        created_records._compute_warehouses()
+        created_records._compute_state()
 
         # Sincronizar asignaciones automáticas para líneas con requisición
-        for rec in created_records:
-            if rec.requisition_line_id and not rec.allocation_ids:
-                supply_type = rec.requisition_line_id.supply_type or (
-                    'resg' if rec.requisition_line_id.line_type in ('tool', 'equipment') else 'consumption'
-                )
-                company = rec.company_id or self.env.company
-                self.env['supply.chain.allocation'].create({
-                    'company_id': company.id,
-                    'product_id': rec.product_id.id,
-                    'product_uom_id': rec.product_uom_id.id,
-                    'requested_qty': rec.product_qty,
-                    'delivered_qty': 0.0,
-                    'supply_type': supply_type,
-                    'supply_request_line_id': rec.id,
-                    'requisition_line_id': rec.requisition_line_id.id,
-                    'state': 'draft',
-                })
+        if not self.env.context.get('skip_auto_allocation'):
+            for rec in created_records:
+                if rec.requisition_line_id and not rec.allocation_ids:
+                    supply_type = rec.requisition_line_id.supply_type or (
+                        'resg' if rec.requisition_line_id.line_type in ('tool', 'equipment') else 'consumption'
+                    )
+                    company = rec.company_id or self.env.company
+                    self.env['supply.chain.allocation'].create({
+                        'company_id': company.id,
+                        'product_id': rec.product_id.id,
+                        'product_uom_id': rec.product_uom_id.id,
+                        'requested_qty': rec.product_qty,
+                        'delivered_qty': 0.0,
+                        'supply_type': supply_type,
+                        'supply_request_line_id': rec.id,
+                        'requisition_line_id': rec.requisition_line_id.id,
+                        'state': 'draft',
+                    })
 
             if rec.request_id:
                 body = Markup(
@@ -371,7 +471,7 @@ class RequisitionSupplyRequestLine(models.Model):
                 )
                 rec.request_id.message_post(body=body, subtype_xmlid="mail.mt_note")
 
-        return created_records
+        return created_records | consolidated_records
 
     def write(self, vals):
         tracked = {'product_id', 'product_qty', 'lot_ids', 'notes'}
@@ -431,7 +531,10 @@ class RequisitionSupplyRequestLine(models.Model):
         allocations_to_clean = self.mapped('allocation_ids')
         for alloc in allocations_to_clean:
             if alloc.state in ('in_progress', 'done'):
-                alloc.action_cancel(action='reintegrate')
+                alloc.action_cancel_allocation(
+                    cancel_action='reintegrate',
+                    reason=_("Partida de suministro eliminada")
+                )
         allocations_to_delete = allocations_to_clean.filtered(lambda a: a.state in ('draft', 'cancel'))
         if allocations_to_delete:
             allocations_to_delete.unlink()
@@ -453,3 +556,118 @@ class RequisitionSupplyRequestLine(models.Model):
             ) % (escape(prod_name), qty, escape(uom_name))
             request.message_post(body=body, subtype_xmlid="mail.mt_note")
         return res
+
+    # -------------------------------------------------------------------------
+    # ACCIONES OPERATIVAS: PENDIENTES DE ENVÍO Y DISPARO DE COMPRA
+    # -------------------------------------------------------------------------
+    def action_mark_as_pending(self):
+        """Desvincula la partida de la Solicitud de Suministro actual para dejarla pendiente de envío."""
+        for line in self:
+            sr = line.request_id
+            if sr and sr.state not in ('draft', False):
+                raise UserError(_("Solo se pueden desasignar partidas de solicitudes en estado Borrador."))
+            line.write({
+                'request_id': False,
+                'lot_ids': [(5, 0, 0)],
+            })
+            if sr:
+                body = Markup(
+                    "<span class='badge text-bg-warning me-2'>Pendiente de Envío</span>"
+                    "Partida <strong>%s</strong> (%s %s) desvinculada de la solicitud y devuelta a pendientes de envío."
+                ) % (
+                    escape(line.product_id.display_name),
+                    line.product_qty,
+                    escape(line.product_uom_id.name or '')
+                )
+                sr.message_post(body=body, subtype_xmlid="mail.mt_note")
+        return True
+
+    def action_open_split_wizard(self):
+        """Abre el asistente interactivo para enviar una cantidad parcial y dejar el saldo remanente pendiente."""
+        self.ensure_one()
+        if self.state not in ('draft', 'pending_assignment'):
+            raise UserError(_("Solo se pueden dividir partidas que se encuentren en Borrador o Pendientes de Envío."))
+        return {
+            'name': _('Dividir Partida / Dejar Saldo Pendiente'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'requisition.supply.request.line.split.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_line_id': self.id,
+                'default_qty_to_send': self.product_qty,
+            },
+        }
+
+    def action_create_purchase_request_line(self):
+        """Genera una línea en Solicitud de Compra a partir de esta partida de suministro sin stock suficiente en Base."""
+        self.ensure_one()
+        # Verificar permisos: Administrador de Requisiciones + Compras
+        if not (self.env.user.has_group('dh_requisitions.group_requisitions_manager') and
+                self.env.user.has_group('purchase.group_purchase_user')):
+            raise UserError(_("Para disparar una solicitud de compra desde suministro debe pertenecer obligatoriamente a Administrador de Requisiciones y al área de Compras."))
+
+        # Buscar si ya existe una solicitud de compra activa para esta misma necesidad
+        existing_pr = self.env['requisition.purchase.request.line'].search([
+            ('product_id', '=', self.product_id.id),
+            ('requisition_line_id', '=', self.requisition_line_id.id if self.requisition_line_id else False),
+            ('state', 'not in', ('cancel', 'purchased')),
+        ], limit=1)
+        if existing_pr:
+            raise UserError(_("Ya existe una Solicitud de Compra activa (%s) para este requerimiento.") % existing_pr.display_name)
+
+        qty_to_buy = max(0.0, self.product_qty - self.qty_base_available) or self.product_qty
+
+        pr_vals = {
+            'requisition_id': self.requisition_id.id if self.requisition_id else False,
+            'requisition_line_id': self.requisition_line_id.id if self.requisition_line_id else False,
+            'product_id': self.product_id.id,
+            'product_qty': qty_to_buy,
+            'notes': _("Disparado automáticamente desde Suministro por falta de stock en Base. %s") % (self.notes or ''),
+            'state': 'pending',
+        }
+        pr_line = self.env['requisition.purchase.request.line'].create(pr_vals)
+
+        # Vincular con allocation
+        if self.allocation_id:
+            self.allocation_id.purchase_request_line_id = pr_line.id
+        elif self.requisition_line_id:
+            supply_type = self.requisition_line_id.supply_type or (
+                'resg' if self.requisition_line_id.line_type in ('tool', 'equipment') else 'consumption'
+            )
+            company = self.company_id or self.env.company
+            alloc = self.env['supply.chain.allocation'].create({
+                'company_id': company.id,
+                'product_id': self.product_id.id,
+                'product_uom_id': self.product_uom_id.id,
+                'requested_qty': self.product_qty,
+                'delivered_qty': 0.0,
+                'supply_type': supply_type,
+                'supply_request_line_id': self.id,
+                'purchase_request_line_id': pr_line.id,
+                'requisition_line_id': self.requisition_line_id.id,
+                'state': 'draft',
+            })
+            pr_line.allocation_id = alloc.id
+
+        if self.request_id:
+            self.request_id.message_post(
+                body=Markup(_(
+                    "Se disparó la Solicitud de Compra <strong>%s</strong> para el producto '%s' (Cantidad: %s %s) "
+                    "por falta de existencias en el Almacén Base."
+                )) % (
+                    escape(pr_line.display_name),
+                    escape(self.product_id.display_name),
+                    qty_to_buy,
+                    escape(self.product_uom_id.name or '')
+                ),
+                subtype_xmlid="mail.mt_note"
+            )
+
+        return {
+            'name': _('Solicitud de Compra'),
+            'type': 'ir.actions.act_window',
+            'res_model': 'requisition.purchase.request.line',
+            'view_mode': 'form',
+            'res_id': pr_line.id,
+        }

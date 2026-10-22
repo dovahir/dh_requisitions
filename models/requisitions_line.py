@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
+from markupsafe import Markup, escape
 
 
 class RequisitionsLine(models.Model):
@@ -70,7 +71,8 @@ class RequisitionsLine(models.Model):
         'product.product',
         string="Producto",
         required=True,
-        check_company=True
+        check_company=True,
+        ondelete='restrict'
     )
     product_uom_id = fields.Many2one(
         'uom.uom',
@@ -334,7 +336,98 @@ class RequisitionsLine(models.Model):
                         _("No se pueden modificar las líneas de la requisición '%s' porque no se encuentra en estado Borrador.")
                         % req.name
                     )
-        return super().write(vals)
+
+        # H-02: Capturar cambios de cantidad antes de guardar para sincronizar documentos dependientes
+        qty_changes = {}
+        if 'product_qty' in vals:
+            new_qty = vals['product_qty']
+            for line in self:
+                if line.product_qty != new_qty:
+                    qty_changes[line.id] = (line, line.product_qty, new_qty)
+
+        res = super().write(vals)
+
+        # H-02: Propagar cantidades actualizadas y registrar en el chatter de documentos vinculados
+        if qty_changes:
+            for line_id, (line, old_qty, new_qty) in qty_changes.items():
+                req_name = line.requisition_id.name if line.requisition_id else ''
+                prod_name = line.product_id.display_name
+                uom_name = line.product_uom_id.name or ''
+
+                chatter_msg = Markup(_(
+                    "El producto <strong>%s</strong> de la requisición <strong>%s</strong> fue modificado a "
+                    "<strong>%s %s</strong> (cantidad anterior: <strong>%s %s</strong>)."
+                )) % (
+                    escape(prod_name),
+                    escape(req_name),
+                    new_qty,
+                    escape(uom_name),
+                    old_qty,
+                    escape(uom_name)
+                )
+
+                # 1. Actualizar asignaciones activas
+                active_allocs = line.allocation_ids.filtered(lambda a: a.state not in ('done', 'cancel'))
+                for alloc in active_allocs:
+                    alloc.requested_qty = new_qty
+                    alloc._sync_origin_document_status()
+
+                # 2. Actualizar albaranes y movimientos de stock en borrador / espera / asignados
+                open_moves = line.allocation_ids.mapped('stock_move_id').filtered(
+                    lambda m: m.state in ('draft', 'waiting', 'confirmed', 'assigned')
+                )
+                for move in open_moves:
+                    move.product_uom_qty = new_qty
+                    if move.picking_id:
+                        move.picking_id.message_post(body=chatter_msg, subtype_xmlid="mail.mt_note")
+
+                # 3. Actualizar partidas en Solicitudes de Suministro abiertas
+                sr_lines = self.env['requisition.supply.request.line'].search([
+                    ('requisition_line_id', '=', line.id),
+                    ('state', 'not in', ('cancelled', 'done_exact', 'done_adjusted'))
+                ])
+                for sr_line in sr_lines:
+                    sr_line.product_qty = new_qty
+                    if sr_line.request_id:
+                        sr_line.request_id.message_post(body=chatter_msg, subtype_xmlid="mail.mt_note")
+
+                # 4. Actualizar partidas en Solicitudes de Compra abiertas
+                pr_lines = self.env['requisition.purchase.request.line'].search([
+                    ('requisition_line_id', '=', line.id),
+                    ('state', 'not in', ('cancel', 'purchased'))
+                ])
+                for pr_line in pr_lines:
+                    pr_line.product_qty = new_qty
+                    pr_line.message_post(body=chatter_msg, subtype_xmlid="mail.mt_note")
+
+                # 5. Actualizar líneas de órdenes de compra (RFQ) en borrador / enviadas
+                po_lines = line.allocation_ids.mapped('purchase_line_id').filtered(
+                    lambda pol: pol.order_id.state in ('draft', 'sent', 'to approve')
+                ) | pr_lines.mapped('purchase_lines').filtered(
+                    lambda pol: pol.order_id.state in ('draft', 'sent', 'to approve')
+                )
+                for po_line in po_lines:
+                    target_uom = getattr(po_line, 'product_uom_id', False) or getattr(po_line, 'product_uom', False) or line.product_uom_id
+                    converted_qty = line.product_uom_id._compute_quantity(new_qty, target_uom)
+                    po_line.product_qty = converted_qty
+                    po_line.order_id.message_post(body=chatter_msg, subtype_xmlid="mail.mt_note")
+
+                # 6. Registrar en el chatter de la propia requisición
+                if line.requisition_id:
+                    line.requisition_id.message_post(
+                        body=Markup(_(
+                            "Se modificó la cantidad de la partida <strong>%s</strong> de <strong>%s %s</strong> a <strong>%s %s</strong>."
+                        )) % (
+                            escape(prod_name),
+                            old_qty,
+                            escape(uom_name),
+                            new_qty,
+                            escape(uom_name)
+                        ),
+                        subtype_xmlid="mail.mt_note"
+                    )
+
+        return res
 
     @api.ondelete(at_uninstall=False)
     def _unlink_except_draft_requisition(self):

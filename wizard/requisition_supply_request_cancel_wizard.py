@@ -44,11 +44,17 @@ class RequisitionSupplyRequestCancelWizard(models.TransientModel):
             raise UserError(_("Debe proporcionar un motivo de cancelación."))
 
         # 1. Cancelar transferencias de almacén asociadas si se solicitó
+        related_pickings = request.picking_ids.filtered(
+            lambda p: p.state in ('draft', 'waiting', 'confirmed', 'assigned')
+        )
+        if related_pickings and not self.cancel_stock_moves:
+            raise UserError(_(
+                "Existen transferencias de almacén pendientes asociadas a esta solicitud. "
+                "Debe marcar la opción para cancelarlas y evitar salidas de stock inconsistentes."
+            ))
+
         cancelled_pickings = []
         if self.cancel_stock_moves:
-            related_pickings = request.picking_ids.filtered(
-                lambda p: p.state in ('draft', 'waiting', 'confirmed', 'assigned')
-            )
             for picking in related_pickings:
                 picking.with_context(mail_notrack=True).action_cancel()
                 picking_body = Markup(
