@@ -310,7 +310,7 @@ class RequisitionsLine(models.Model):
                     line.allocation_ids.filtered(lambda a: a.cancel_action == 'close').mapped('cancelled_qty')
                 )
                 line.qty_cancelled = closed_allocs_qty
-                # Calcular saldo en tránsito unificado para evitar doble cómputo si una asignación tiene suministro y compra
+                # Calcular cantidad en tránsito unificada para evitar doble cómputo si una asignación tiene suministro y compra
                 active_allocs = line.allocation_ids.filtered(lambda a: a.state in ('draft', 'in_progress'))
                 total_in_flight = sum(active_allocs.mapped('open_qty'))
                 line.qty_pending = max(0.0, line.product_qty - line.qty_done - total_in_flight - line.qty_cancelled)

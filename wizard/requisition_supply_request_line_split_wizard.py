@@ -8,7 +8,7 @@ class RequisitionSupplyRequestLineSplitWizard(models.TransientModel):
     """
     Asistente interactivo para dividir una partida de suministro:
     mantiene una cantidad a enviar en la solicitud actual y genera
-    una nueva partida con el saldo remanente en el pool de Pendientes de Envío.
+    una nueva partida con la cantidad remanente en el pool de Pendientes de Envío.
     """
     _name = 'requisition.supply.request.line.split.wizard'
     _description = 'Asistente para Dividir Partida de Suministro'
@@ -42,7 +42,7 @@ class RequisitionSupplyRequestLineSplitWizard(models.TransientModel):
         digits='Product Unit of Measure'
     )
     qty_remaining_pending = fields.Float(
-        string="Saldo Remanente Pendiente de Envío",
+        string="Cantidad Remanente Pendiente de Envío",
         compute='_compute_qty_remaining',
         digits='Product Unit of Measure'
     )
@@ -94,7 +94,7 @@ class RequisitionSupplyRequestLineSplitWizard(models.TransientModel):
                 body=Markup(_(
                     "Se dividió la partida de <strong>%s</strong>:<br/>"
                     "• <strong>%s %s</strong> se mantienen programadas en este envío.<br/>"
-                    "• <strong>%s %s</strong> se separaron como saldo <strong>Pendiente de Envío</strong>."
+                    "• <strong>%s %s</strong> se separaron como cantidad <strong>Pendiente de Envío</strong>."
                 )) % (
                     escape(orig_line.product_id.display_name),
                     self.qty_to_send,

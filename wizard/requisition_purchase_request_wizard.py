@@ -26,7 +26,7 @@ class RequisitionPurchaseRequestWizard(models.TransientModel):
     line_ids = fields.One2many(
         'requisition.purchase.request.wizard.line',
         'wizard_id',
-        string="Partidas por Solicitar",
+        string="Partidas a solicitar",
     )
 
     @api.model
@@ -42,7 +42,7 @@ class RequisitionPurchaseRequestWizard(models.TransientModel):
 
         res['requisition_id'] = requisition.id
 
-        # Precargar partidas con saldo pendiente de comprar
+        # Precargar partidas con cantidad pendiente de comprar
         eligible_lines = requisition.line_ids.filtered(
             lambda l: l._get_qty_unpurchased() > 0 and l.line_state not in ('done', 'cancel')
         )
@@ -71,7 +71,7 @@ class RequisitionPurchaseRequestWizard(models.TransientModel):
             unpurchased = w_line.requisition_line_id._get_qty_unpurchased()
             if w_line.product_qty > unpurchased:
                 raise ValidationError(
-                    _("La cantidad a comprar para '%s' (%s) no puede exceder el saldo pendiente (%s).") % (
+                    _("La cantidad a comprar para '%s' (%s) no puede exceder la cantidad pendiente (%s).") % (
                         w_line.product_id.display_name, w_line.product_qty, unpurchased
                     )
                 )
@@ -135,7 +135,7 @@ class RequisitionPurchaseRequestWizardLine(models.TransientModel):
         readonly=True,
     )
     qty_unpurchased = fields.Float(
-        string="Saldo por Comprar",
+        string="Cantidad por Comprar",
         readonly=True,
         digits='Product Unit of Measure',
     )

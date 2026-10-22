@@ -6,7 +6,7 @@ from odoo.exceptions import UserError
 class RequisitionAllocationCancelWizard(models.TransientModel):
     """
     Asistente interactivo para cancelar o ajustar asignaciones del libro mayor
-    (requisition.allocation) permitiendo al usuario elegir si reintegrar el saldo
+    (requisition.allocation) permitiendo al usuario elegir si reintegrar la cantidad
     a la requisición o cerrarlo definitivamente con motivo obligatorio.
     """
     _name = 'requisition.allocation.cancel.wizard'
@@ -20,9 +20,9 @@ class RequisitionAllocationCancelWizard(models.TransientModel):
     cancel_action = fields.Selection(
         [
             ('reintegrate', 'Reintegrar a Pendiente (Permite volver a surtir en requisición)'),
-            ('close', 'Cerrar Saldo Definitivamente (La necesidad ya no se surtirá)'),
+            ('close', 'Cerrar Cantidad Definitivamente (La necesidad ya no se surtirá)'),
         ],
-        string='Tratamiento del Saldo',
+        string='Tratamiento de la Cantidad',
         default='reintegrate',
         required=True
     )

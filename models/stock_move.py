@@ -99,7 +99,7 @@ class StockMove(models.Model):
         return moves_done
 
     def _action_cancel(self):
-        """Al cancelarse movimientos con asignaciones activas, sincroniza la cancelación y reintegra saldos."""
+        """Al cancelarse movimientos con asignaciones activas, sincroniza la cancelación y reintegra cantidades."""
         res = super()._action_cancel()
         for move in self:
             allocs = move.allocation_ids.filtered(lambda a: a.state != 'cancel')
@@ -181,7 +181,7 @@ class StockMove(models.Model):
                         'state': 'done'
                     })
 
-                    # Vincular el saldo pendiente al nuevo movimiento del backorder
+                    # Vincular la cantidad pendiente al nuevo movimiento del backorder
                     bm = backorder_moves.filtered(lambda m: m.product_id == move.product_id)
                     if bm:
                         new_alloc_vals = {

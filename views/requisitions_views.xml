@@ -165,17 +165,17 @@
                                            options="{'no_create': True, 'no_create_edit': True}"
                                            domain="[('categ_id.requisition_type', '=', 'material'), ('categ_id.allow_requisition', '!=', False)]"/>
                                     <field name="product_qty"/>
-                                    <field name="qty_done" readonly="1" optional="show"/>
                                     <field name="qty_pending" readonly="1" optional="show"/>
+                                    <field name="qty_done" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
                                     <field name="product_uom_id"/>
+                                    <field name="note"/>
                                     <field name="line_state" widget="badge" optional="show"
                                             decoration-info="line_state in ('draft', 'pending')"
                                             decoration-warning="line_state in ('partial_stock', 'partial_purchase', 'partial_mixed', 'partially_done')"
                                             decoration-primary="line_state in ('in_stock', 'in_purchase', 'in_mixed')"
                                             decoration-success="line_state == 'done'"
                                             decoration-muted="line_state == 'cancel'"/>
-                                    <field name="note"/>
                                 </list>
                             </field>
                         </page>
@@ -198,6 +198,7 @@
                                     <field name="qty_pending" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
                                     <field name="product_uom_id"/>
+                                    <field name="note"/>
                                     <field name="custody_state" widget="badge" optional="show"
                                            decoration-info="custody_state == 'in_custody'"
                                            decoration-success="custody_state == 'returned'"
@@ -208,7 +209,6 @@
                                             decoration-primary="line_state in ('in_stock', 'in_purchase', 'in_mixed')"
                                             decoration-success="line_state == 'done'"
                                             decoration-muted="line_state == 'cancel'"/>
-                                    <field name="note"/>
                                 </list>
                             </field>
                         </page>
@@ -277,7 +277,7 @@
 
                         <!-- Pestaña 5: Trazabilidad y Suministro -->
                         <page string="Trazabilidad y Suministro" name="allocation_traceability"
-                              invisible="state == 'draft'">
+                              invisible="1">
                             <field name="allocation_ids" readonly="1">
                                 <list decoration-muted="state == 'cancel'"
                                       decoration-success="state == 'done'"
@@ -303,7 +303,7 @@
                                            decoration-warning="state == 'in_progress'"
                                            decoration-success="state == 'done'"
                                            decoration-danger="state == 'cancel'"/>
-                                    <button name="action_open_cancel_wizard" string="Cancelar / Cerrar Saldo" type="object"
+                                    <button name="action_open_cancel_wizard" string="Cancelar / Cerrar Cantidad" type="object"
                                             icon="fa-times-circle" invisible="state in ('done', 'cancel')"/>
                                 </list>
                             </field>

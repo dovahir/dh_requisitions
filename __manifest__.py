@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Requisiciones",
-    "version": "19.0.2.6.0",
+    "version": "19.0.1.0.0",
     "category": "Supply Chain",
     "summary": "Solicitud, aprobación y seguimiento de requisiciones de materiales, equipos y servicios.",
     "description": """
@@ -17,7 +17,7 @@ Características principales:
 - Configuración de rutas y traslados de material entre almacenes.
 - Consolidación de solicitudes a cotizaciones de compra con seguimiento de entregas y cancelaciones.
 - Gestión de partidas pendientes de envío a obra, división de cantidades y sugerencia de compra por desabasto en base.
-- Matriz de trazabilidad y asignación de suministro con control de entregas, devoluciones y cancelación de saldo.
+- Matriz de trazabilidad y asignación de suministro con control de entregas, devoluciones y cancelación de cantidad.
 - Asistente interactivo de solicitud de compra con selección granular de partidas y priorización simplificada.
     """,
     "author": "Aldahir",

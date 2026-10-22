@@ -230,7 +230,7 @@ class TestRequisitionFlow(common.TransactionCase):
         req._create_purchase_request_lines({line.id: 5.0})
         self.assertEqual(line.line_state, 'partial_purchase')
 
-        # 3. Solicitud a almacén por 5.0 (unifica con la compra de 5.0, saldo restante por tramitar: 5.0)
+        # 3. Solicitud a almacén por 5.0 (unifica con la compra de 5.0, cantidad restante por tramitar: 5.0)
         sr = self.env['requisition.supply.request'].create({
             'company_id': self.env.company.id,
             'warehouse_origin_id': self.warehouse.id,
@@ -337,5 +337,5 @@ class TestRequisitionFlow(common.TransactionCase):
         ])
         body_texts = " ".join([m.body or '' for m in messages])
         self.assertIn("Ajuste de Partida", body_texts)
-        self.assertIn("Se canceló el saldo pendiente", body_texts)
+        self.assertIn("Se canceló la cantidad pendiente", body_texts)
 

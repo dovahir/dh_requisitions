@@ -87,7 +87,7 @@ class TestPurchaseRequest(common.TransactionCase):
         wizard = self.env['requisition.purchase.request.wizard'].with_context(
             active_id=req.id, default_requisition_id=req.id
         ).create({})
-        self.assertEqual(len(wizard.line_ids), 2, "El wizard debe precargar 2 partidas con saldo por comprar")
+        self.assertEqual(len(wizard.line_ids), 2, "El wizard debe precargar 2 partidas con cantidad por comprar")
         wizard.action_confirm()
 
         pr_lines = self.env['requisition.purchase.request.line'].search([
@@ -97,7 +97,7 @@ class TestPurchaseRequest(common.TransactionCase):
 
         for line in pr_lines:
             self.assertEqual(line.state, 'pending', "El estado inicial debe ser 'pending'")
-            self.assertEqual(line.pending_qty_to_buy, line.product_qty, "El saldo pendiente inicial debe igualar la cantidad solicitada")
+            self.assertEqual(line.pending_qty_to_buy, line.product_qty, "La cantidad pendiente inicial debe igualar la cantidad solicitada")
             self.assertTrue(line.allocation_ids, "Debe existir al menos una asignación transversal en supply.chain.allocation")
             self.assertFalse(line.allocation_ids[0].purchase_line_id, "La asignación inicial no debe tener aún línea de compra")
             self.assertTrue(line.requisition_line_notes, "Debe heredar las notas específicas de la partida")
@@ -212,7 +212,7 @@ class TestPurchaseRequest(common.TransactionCase):
         self.assertEqual(pr_line.state, 'to_receive', "El estado debe evolucionar a 'to_receive'")
 
     def test_04_cancel_line_action(self):
-        """Valida la cancelación interactiva de solicitudes de compra y actualización de saldos."""
+        """Valida la cancelación interactiva de solicitudes de compra y actualización de cantidades."""
         req = self.env['requisitions'].create({
             'employee_id': self.employee.id,
             'warehouse_id': self.warehouse.id,

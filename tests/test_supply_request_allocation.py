@@ -75,7 +75,7 @@ class TestSupplyRequestAllocation(common.TransactionCase):
         })
 
     def test_01_preventive_reservation_in_draft_supply_request(self):
-        """Valida que una solicitud de suministro en borrador descuenta el saldo pendiente en la requisición."""
+        """Valida que una solicitud de suministro en borrador descuenta la cantidad pendiente en la requisición."""
         requisition = self.env['requisitions'].create({
             'employee_id': self.employee.id,
             'user_id': self.env.user.id,
@@ -303,7 +303,7 @@ class TestSupplyRequestAllocation(common.TransactionCase):
         self.assertEqual(req_line.qty_allocated_stock, 9.0)
         self.assertEqual(req_line.qty_pending, 6.0)
 
-        # Eliminar línea en borrador: libera la asignación y restaura saldo en la requisición
+        # Eliminar línea en borrador: libera la asignación y restaura cantidad en la requisición
         sr_line.unlink()
         self.assertFalse(alloc.exists())
         req_line._compute_quantities()

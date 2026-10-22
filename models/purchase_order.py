@@ -89,7 +89,7 @@ class PurchaseOrder(models.Model):
                 line._compute_quantities()
                 line._compute_state()
                 line.message_post(
-                    body=_("La orden de compra <strong>%s</strong> fue cancelada. Saldos recalculados en la solicitud.") % order.name,
+                    body=_("La orden de compra <strong>%s</strong> fue cancelada. Cantidades recalculadas en la solicitud.") % order.name,
                     subtype_xmlid="mail.mt_note"
                 )
         return res
@@ -229,7 +229,7 @@ class PurchaseOrderLine(models.Model):
         return new_line
 
     def unlink(self):
-        """Al eliminar una línea de compra, cancela las asignaciones activas reintegrando el saldo."""
+        """Al eliminar una línea de compra, cancela las asignaciones activas reintegrando la cantidad."""
         allocs_to_notify = self.env['requisition.allocation']
         for line in self:
             active_allocs = line.allocation_ids.filtered(lambda a: a.state != 'cancel')

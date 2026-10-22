@@ -207,7 +207,7 @@ class RequisitionPurchaseRequestLine(models.Model):
         store=True
     )
 
-    # Cantidades y Saldos en Flujo
+    # Cantidades en Flujo
     qty_in_progress = fields.Float(
         string='Cant. en Cotización',
         digits='Product Unit of Measure',
@@ -357,7 +357,7 @@ class RequisitionPurchaseRequestLine(models.Model):
                 max(0.0, a.requested_qty - a.delivered_qty) for a in rfq_allocs
             )
 
-            # 4. Saldo pendiente de comprar
+            # 4. Cantidad pendiente de comprar
             rec.pending_qty_to_buy = max(
                 0.0,
                 rec.product_qty - rec.qty_done - rec.qty_to_receive - rec.qty_in_progress - rec.qty_cancelled
@@ -541,7 +541,7 @@ class RequisitionPurchaseRequestLine(models.Model):
                 )
 
         self.state = 'cancel'
-        msg = Markup(_("<strong>Solicitud de Compra Cancelada:</strong> Tratamiento de saldo: %s.")) % (
+        msg = Markup(_("<strong>Solicitud de Compra Cancelada:</strong> Tratamiento de cantidad: %s.")) % (
             _("Reintegrado a requisición") if cancel_action == 'reintegrate' else _("Cerrado definitivamente")
         )
         self.message_post(body=msg, subtype_xmlid="mail.mt_note")

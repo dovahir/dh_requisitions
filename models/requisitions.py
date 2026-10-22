@@ -577,7 +577,7 @@ class Requisitions(models.Model):
                 'date_cancelled': False,
             })
 
-            # Si la requisición estaba cancelada, reactivar el saldo reintegrando las asignaciones canceladas
+            # Si la requisición estaba cancelada, reactivar la cantidad reintegrando las asignaciones canceladas
             cancelled_allocs = rec.line_ids.allocation_ids.filtered(lambda a: a.state == 'cancel')
             if cancelled_allocs:
                 cancelled_allocs.write({
@@ -618,7 +618,7 @@ class Requisitions(models.Model):
             lambda l: l.line_state not in ('done', 'cancel') and l.qty_pending > 0
         )
         if not service_lines:
-            raise UserError(_("No hay líneas de servicios con saldo pendiente para generar una solicitud de cotización."))
+            raise UserError(_("No hay líneas de servicios con cantidad pendiente para generar una solicitud de cotización."))
 
         supplier = service_lines[0].product_id.seller_ids[:1].partner_id
         if not supplier:
@@ -694,7 +694,7 @@ class Requisitions(models.Model):
             lambda l: l.line_type != 'service' and l.qty_pending > 0 and l.line_state not in ('done', 'cancel')
         )
         if not eligible_lines:
-            raise UserError(_("No hay partidas de materiales, herramientas o equipos con saldo pendiente para despachar."))
+            raise UserError(_("No hay partidas de materiales, herramientas o equipos con cantidad pendiente para despachar."))
 
         return {
             'name': _('Generar Despacho / Entrega'),
@@ -706,7 +706,7 @@ class Requisitions(models.Model):
         }
 
     def action_create_purchase_request(self):
-        """Abre el asistente interactivo para solicitar compra de partidas con saldo pendiente."""
+        """Abre el asistente interactivo para solicitar compra de partidas con cantidad pendiente."""
         self.ensure_one()
         if not (self.env.user.has_group('purchase.group_purchase_user') and
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
@@ -718,7 +718,7 @@ class Requisitions(models.Model):
             lambda l: l._get_qty_unpurchased() > 0 and l.line_state not in ('done', 'cancel')
         )
         if not lines_to_buy:
-            raise UserError(_("No hay partidas con saldo pendiente para enviar a compra."))
+            raise UserError(_("No hay partidas con cantidad pendiente para enviar a compra."))
 
         return {
             'name': _('Solicitar Compra'),
@@ -733,7 +733,7 @@ class Requisitions(models.Model):
         """
         Genera líneas de solicitud de compra y registra el ledger requisition.allocation.
         lines_data: Lista de diccionarios [{'line': requisitions.line, 'qty': float, 'priority': str, 'notes': str}]
-        Si lines_data es None, procesa todas las partidas con saldo pendiente por comprar.
+        Si lines_data es None, procesa todas las partidas con cantidad pendiente por comprar.
         """
         self.ensure_one()
         if lines_data is None:
@@ -757,7 +757,7 @@ class Requisitions(models.Model):
             lines_data = normalized
 
         if not lines_data:
-            raise UserError(_("No hay partidas válidas con saldo pendiente para enviar a compra."))
+            raise UserError(_("No hay partidas válidas con cantidad pendiente para enviar a compra."))
 
         created_lines = self.env['requisition.purchase.request.line']
 

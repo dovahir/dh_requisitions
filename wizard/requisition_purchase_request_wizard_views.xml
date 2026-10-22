@@ -14,7 +14,7 @@
                         <field name="company_id" invisible="1"/>
                     </group>
                     <notebook>
-                        <page string="Partidas por Solicitar" name="lines_page">
+                        <page string="Partidas a solicitar" name="lines_page">
                             <field name="line_ids">
                                 <list editable="bottom" create="0" delete="0">
                                     <field name="requisition_line_id" column_invisible="1"/>

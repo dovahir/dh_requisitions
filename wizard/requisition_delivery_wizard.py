@@ -88,7 +88,7 @@ class RequisitionDeliveryWizard(models.TransientModel):
                     dest_loc = customer_loc or dest_loc
                 res['location_dest_id'] = dest_loc.id if dest_loc else False
 
-        # Precargar líneas de materiales, herramientas y equipos con saldo pendiente
+        # Precargar líneas de materiales, herramientas y equipos con cantidad pendiente
         lines_data = []
         eligible_lines = requisition.line_ids.filtered(
             lambda l: l.line_type != 'service' and l.qty_pending > 0 and l.line_state not in ('done', 'cancel')
@@ -111,7 +111,7 @@ class RequisitionDeliveryWizard(models.TransientModel):
         for line in lines_to_deliver:
             if line.qty_to_deliver > line.qty_pending:
                 raise ValidationError(
-                    _("La cantidad a surtir para '%s' (%s) supera el saldo pendiente (%s).") % (
+                    _("La cantidad a surtir para '%s' (%s) supera la cantidad pendiente (%s).") % (
                         line.product_id.display_name, line.qty_to_deliver, line.qty_pending
                     )
                 )
@@ -249,7 +249,7 @@ class RequisitionDeliveryWizardLine(models.TransientModel):
     )
     qty_pending = fields.Float(
         related='requisition_line_id.qty_pending',
-        string="Saldo Pendiente",
+        string="Cantidad Pendiente",
         readonly=True
     )
     qty_available_stock = fields.Float(

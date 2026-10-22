@@ -7,7 +7,7 @@
             <form string="Cancelar Asignaciones de Suministro">
                 <sheet>
                     <div class="alert alert-warning" role="alert">
-                        Seleccione el tratamiento para el saldo de las asignaciones a cancelar e indique el motivo justificado.
+                        Seleccione el tratamiento para la cantidad de las asignaciones a cancelar e indique el motivo justificado.
                     </div>
                     <group>
                         <field name="cancel_action" widget="radio"/>

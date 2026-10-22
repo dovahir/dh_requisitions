@@ -123,7 +123,7 @@ class RequisitionAllocation(models.Model):
         string='Cantidad Cancelada Definitiva',
         default=0.0,
         digits='Product Unit of Measure',
-        help='Cantidad que no se surtirá y cuyo saldo queda cerrado definitivamente en la requisición.'
+        help='Cantidad que no se surtirá y que queda cerrada definitivamente en la requisición.'
     )
 
     # --- Filiación y Etapas de la Cadena de Suministro ---
@@ -182,9 +182,9 @@ class RequisitionAllocation(models.Model):
     cancel_action = fields.Selection(
         [
             ('reintegrate', 'Reintegrar a Pendiente (Re-suministrar)'),
-            ('close', 'Cerrar Saldo (Ya no se requerirá más)'),
+            ('close', 'Cerrar Cantidad (Ya no se requerirá más)'),
         ],
-        string='Tratamiento del Saldo al Cancelar',
+        string='Tratamiento de la Cantidad al Cancelar',
         default='reintegrate'
     )
     cancel_reason = fields.Text(
@@ -248,8 +248,8 @@ class RequisitionAllocation(models.Model):
         Cancela o ajusta las asignaciones seleccionadas aplicando la política elegida:
         - Si ya está 'done' y delivered_qty >= requested_qty, se omite.
         - Si delivered_qty > 0 (entrega parcial):
-          * 'close': el saldo no entregado pasa a cancelled_qty y la asignación concluye en 'done'.
-          * 'reintegrate': el saldo no entregado se devuelve a la requisición y requested_qty = delivered_qty ('done').
+          * 'close': la cantidad no entregada pasa a cancelled_qty y la asignación concluye en 'done'.
+          * 'reintegrate': la cantidad no entregada se devuelve a la requisición y requested_qty = delivered_qty ('done').
         - Si delivered_qty == 0:
           * 'close': cancelled_qty = requested_qty, state = 'cancel'.
           * 'reintegrate': cancelled_qty = 0, state = 'cancel'.
@@ -310,7 +310,7 @@ class RequisitionAllocation(models.Model):
                     _("Cantidad Afectada"),
                     rec.requested_qty,
                     escape(rec.product_uom_id.name or ''),
-                    _("Tratamiento del Saldo"),
+                    _("Tratamiento de la Cantidad"),
                     escape(action_label),
                     _("Motivo"),
                     escape(motivo_text)
@@ -323,7 +323,7 @@ class RequisitionAllocation(models.Model):
                         "<br/><strong>%s:</strong> %s"
                     ) % (
                         _("Ajuste de Partida"),
-                        _("Se canceló el saldo pendiente. Requerido original: %s %s, efectivamente suministrado: %s %s, cancelado: %s %s.") % (
+                        _("Se canceló la cantidad pendiente. Requerido original: %s %s, efectivamente suministrado: %s %s, cancelado: %s %s.") % (
                             line.product_qty, uom_str,
                             line.qty_done, uom_str,
                             line.qty_cancelled, uom_str
@@ -393,7 +393,7 @@ class RequisitionAllocation(models.Model):
                     rec.requisition_id.message_post(
                         body=Markup(_(
                             "<strong>Devolución de Material a Bodega:</strong> Se retornaron %s %s del producto '%s'. "
-                            "Saldo pendiente restituido en la requisición."
+                            "Cantidad pendiente restituida en la requisición."
                         )) % (alloc_qty, escape(rec.product_uom_id.name or ''), escape(rec.product_id.display_name)),
                         subtype_xmlid="mail.mt_note"
                     )
@@ -486,7 +486,7 @@ class RequisitionAllocation(models.Model):
         self._sync_origin_document_status()
 
     def action_open_cancel_wizard(self):
-        """Abre el asistente interactivo para cancelar asignaciones seleccionadas definiendo su tratamiento de saldo."""
+        """Abre el asistente interactivo para cancelar asignaciones seleccionadas definiendo su tratamiento de cantidad."""
         return {
             'name': _('Cancelar Asignación de Suministro'),
             'type': 'ir.actions.act_window',
@@ -515,7 +515,7 @@ class RequisitionAllocation(models.Model):
             if rec.state in ('in_progress', 'done'):
                 raise UserError(_(
                     "No se pueden eliminar asignaciones de suministro en proceso o completadas. "
-                    "Cancele la asignación primero si desea reintegrar o cerrar el saldo."
+                    "Cancele la asignación primero si desea reintegrar o cerrar la cantidad."
                 ))
 
     def unlink(self):

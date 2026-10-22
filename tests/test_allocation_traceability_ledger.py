@@ -226,7 +226,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         line._compute_quantities()
         req._update_state_from_lines()
 
-        # El saldo suministrado final al solicitante es 10.0 (sin doble conteo con la compra)
+        # La cantidad suministrada final al solicitante es 10.0 (sin doble conteo con la compra)
         self.assertEqual(line.qty_done, 10.0)
         self.assertEqual(line.qty_pending, 0.0)
         self.assertEqual(req.state, 'done')
@@ -249,7 +249,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
     def test_supply_request_then_purchase_request_unified_allocation(self):
         """
         Escenario solicitado: Si ya se solicitó suministro para una requisición (traslado Base -> Obra),
-        se debe permitir solicitar compra para abastecer dicho suministro sin error ilógico de saldo pendiente,
+        se debe permitir solicitar compra para abastecer dicho suministro sin error ilógico de cantidad pendiente,
         vinculando ambos a la misma asignación (requisition.allocation unificada).
         """
         req = self._create_approved_requisition(qty=10.0)
@@ -281,7 +281,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         self.assertEqual(alloc.supply_request_id, sr)
 
         # 2. El usuario ahora hace clic en "Solicitar Compra" desde la Requisición
-        # Esto NO debe arrojar UserError("No hay partidas con saldo pendiente")
+        # Esto NO debe arrojar UserError("No hay partidas con cantidad pendiente")
         action = req.action_create_purchase_request()
         self.assertTrue(action)
         wizard = self.env['requisition.purchase.request.wizard'].with_context(
@@ -458,7 +458,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         # Invocar retorno
         alloc._on_purchase_returned(return_move, 4.0)
 
-        # Saldo en bodega debe reducirse a 6.0 y el estado debe reabrirse a in_progress
+        # Cantidad en bodega debe reducirse a 6.0 y el estado debe reabrirse a in_progress
         self.assertEqual(alloc.delivered_qty, 6.0)
         self.assertEqual(alloc.state, 'in_progress')
         self.assertEqual(alloc.open_qty, 4.0)
@@ -548,7 +548,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         self.assertEqual(line.custody_state, 'returned')
 
     def test_write_product_qty_with_prior_deliveries(self):
-        """7. Modificar product_qty tras entregas previas ajusta únicamente el saldo neto no surtido sin sobreasignar."""
+        """7. Modificar product_qty tras entregas previas ajusta únicamente la cantidad neta no surtida sin sobreasignar."""
         req = self.env['requisitions'].create({
             'employee_id': self.employee.id,
             'warehouse_id': self.warehouse.id,
@@ -690,7 +690,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         wiz = self.env['requisition.allocation.cancel.wizard'].create({
             'allocation_ids': [(6, 0, alloc.ids)],
             'cancel_action': 'close',
-            'reason': 'Cierre definitivo de saldo no requerido',
+            'reason': 'Cierre definitivo de cantidad no requerida',
         })
         wiz.action_confirm_cancel()
 

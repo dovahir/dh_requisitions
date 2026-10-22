@@ -39,10 +39,10 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
     )
     supply_request_id = fields.Many2one(
         'requisition.supply.request',
-        string="Solicitud de Suministro (SR) Destino",
+        string="Solicitud de Suministro",
         required=True,
         domain="[('company_id', '=', company_id), ('warehouse_dest_id', '=', warehouse_dest_id), ('state', '=', 'draft'), ('is_blocked', '=', False)]",
-        help="Seleccione una Solicitud de Suministro activa existente y sin corte."
+        help="Seleccione una Solicitud de Suministro activa"
     )
     notes = fields.Char(
         string="Notas / Observaciones"
@@ -50,7 +50,7 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
     line_ids = fields.One2many(
         'requisition.supply.request.wizard.line',
         'wizard_id',
-        string="Partidas por Solicitar"
+        string="Partidas a solicitar"
     )
 
     @api.model
@@ -85,7 +85,7 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
             if existing_sr:
                 res['supply_request_id'] = existing_sr.id
 
-        # Precargar partidas físicas con saldo pendiente de suministrar
+        # Precargar partidas físicas con cantidad pendiente de suministrar
         lines_data = []
         eligible_lines = requisition.line_ids.filtered(
             lambda l: l.line_type != 'service' and l._get_qty_unsupplied() > 0 and l.line_state not in ('done', 'cancel')
@@ -120,7 +120,7 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
             unsupplied = line.requisition_line_id._get_qty_unsupplied()
             if line.product_qty > unsupplied:
                 raise ValidationError(
-                    _("La cantidad solicitada para '%s' (%s) no puede ser mayor al saldo por suministrar (%s).") % (
+                    _("La cantidad solicitada para '%s' (%s) no puede ser mayor a la cantidad por suministrar (%s).") % (
                         line.product_id.display_name, line.product_qty, unsupplied
                     )
                 )
@@ -197,7 +197,7 @@ class RequisitionSupplyRequestWizardLine(models.TransientModel):
     )
     qty_pending = fields.Float(
         related='requisition_line_id.qty_pending',
-        string="Saldo Pendiente",
+        string="Cantidad Pendiente",
         readonly=True
     )
     product_qty = fields.Float(

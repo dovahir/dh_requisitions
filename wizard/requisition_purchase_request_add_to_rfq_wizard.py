@@ -107,7 +107,7 @@ class RequisitionPurchaseRequestAddToRfqWizard(models.TransientModel):
                 )
             if float_compare(line.product_qty, line.request_line_id.pending_qty_to_buy, precision_rounding=line.uom_id.rounding or 0.01) > 0:
                 raise UserError(
-                    _("La cantidad indicada (%.2f) excede el saldo pendiente por comprar (%.2f) para '%s'.")
+                    _("La cantidad indicada (%.2f) excede la cantidad pendiente por comprar (%.2f) para '%s'.")
                     % (line.product_qty, line.request_line_id.pending_qty_to_buy, line.product_id.display_name)
                 )
 
@@ -283,7 +283,7 @@ class RequisitionPurchaseRequestAddToRfqWizardLine(models.TransientModel):
         readonly=True
     )
     pending_qty_to_buy = fields.Float(
-        string='Saldo Pendiente',
+        string='Cantidad Pendiente',
         related='request_line_id.pending_qty_to_buy',
         readonly=True
     )

@@ -636,12 +636,12 @@ class RequisitionSupplyRequestLine(models.Model):
         return True
 
     def action_open_split_wizard(self):
-        """Abre el asistente interactivo para enviar una cantidad parcial y dejar el saldo remanente pendiente."""
+        """Abre el asistente interactivo para enviar una cantidad parcial y dejar la cantidad remanente pendiente."""
         self.ensure_one()
         if self.state not in ('draft', 'pending_assignment'):
             raise UserError(_("Solo se pueden dividir partidas que se encuentren en Borrador o Pendientes de Envío."))
         return {
-            'name': _('Dividir Partida / Dejar Saldo Pendiente'),
+            'name': _('Dividir Partida / Dejar Cantidad Pendiente'),
             'type': 'ir.actions.act_window',
             'res_model': 'requisition.supply.request.line.split.wizard',
             'view_mode': 'form',

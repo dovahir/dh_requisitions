@@ -260,7 +260,7 @@
                                             type="object"
                                             icon="fa-code-fork"
                                             class="text-primary"
-                                            title="Dividir cantidad y dejar saldo pendiente de envío"
+                                            title="Dividir cantidad y dejar cantidad pendiente de envío"
                                             invisible="parent.state != 'draft'"/>
                                     <button name="action_mark_as_pending"
                                             type="object"
