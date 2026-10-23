@@ -460,19 +460,36 @@ class RequisitionPurchaseRequestLine(models.Model):
             rec.has_pending_supply = bool(rec.allocation_ids.mapped('supply_request_line_id'))
 
     def _check_purchase_request_permissions(self):
-        """Verifica que el usuario pertenezca al área de compras Y administrador de requisiciones."""
+        """Verifica que el usuario pertenezca al área de compras o a Administrador."""
         is_purchase = (self.env.user.has_group('purchase.group_purchase_user') or
                        self.env.user.has_group('purchase.group_purchase_manager'))
         is_req_admin = self.env.user.has_group('dh_requisitions.group_requisitions_manager')
-        if not (is_purchase and is_req_admin):
-            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Compras para gestionar solicitudes de compra."))
+        if not (is_purchase or is_req_admin):
+            raise UserError(_("Se requiere pertenecer al área de Compras o a Administrador para gestionar solicitudes de compra."))
+
+    def _check_purchase_manager_permissions(self):
+        """Verifica que el usuario pertenezca a Administradores de Compras o Administrador."""
+        is_purchase_manager = (
+            self.env.user.has_group('purchase.group_purchase_manager') or
+            self.env.user.has_group('dh_requisitions.group_requisitions_manager')
+        )
+        if not is_purchase_manager:
+            raise UserError(_("Se requiere pertenecer a Administradores de Compras o Administrador para realizar esta acción."))
+
+    def unlink(self):
+        """Impide la eliminación de partidas de compra a usuarios que no sean administradores."""
+        self._check_purchase_manager_permissions()
+        for rec in self:
+            if rec.state != 'pending':
+                raise UserError(_("Solo se pueden eliminar solicitudes de compra en estado 'Pendiente'."))
+        return super().unlink()
 
     def action_add_to_pending_supply(self):
-        """Permite al personal de inventario registrar la necesidad de traslado intermedio Base -> Obra en Pendientes de Envío."""
+        """Permite al personal de almacén base registrar la necesidad de traslado intermedio Base -> Obra en Pendientes de Envío."""
         self.ensure_one()
-        if not (self.env.user.has_group('stock.group_stock_user') and
+        if not (self.env.user.has_group('dh_requisitions.group_stock_request_employee') or
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Se requiere pertenecer a Administradores de Requisiciones y al área de Inventario para registrar pendientes de envío."))
+            raise UserError(_("Se requiere pertenecer a Empleados Almacén Base o Administrador para registrar pendientes de envío."))
 
         if self.product_id.type == 'service':
             raise UserError(_("Las partidas de servicios no aplican para traslados físicos de suministro."))
@@ -513,7 +530,7 @@ class RequisitionPurchaseRequestLine(models.Model):
 
     def action_open_add_to_rfq_wizard(self):
         """Abre el asistente para agregar las líneas seleccionadas a una RFQ."""
-        self._check_purchase_request_permissions()
+        self._check_purchase_manager_permissions()
         action = self.env['ir.actions.actions']._for_xml_id('dh_requisitions.action_requisition_purchase_request_add_to_rfq')
         action['context'] = {
             'active_model': 'requisition.purchase.request.line',
@@ -524,7 +541,7 @@ class RequisitionPurchaseRequestLine(models.Model):
     def action_cancel_line(self, cancel_action='reintegrate', reason=None):
         """Cancela la línea de solicitud y actualiza o cancela las asignaciones activas."""
         self.ensure_one()
-        self._check_purchase_request_permissions()
+        self._check_purchase_manager_permissions()
         if self.state in ('cancel', 'purchased'):
             raise UserError(_("No se puede cancelar una línea en estado '%s'.") % dict(_LINE_STATES).get(self.state, self.state))
 
@@ -549,7 +566,7 @@ class RequisitionPurchaseRequestLine(models.Model):
 
     def action_cancel_multiple(self):
         """Acción de cabecera para cancelar múltiples líneas seleccionadas en lote."""
-        self._check_purchase_request_permissions()
+        self._check_purchase_manager_permissions()
         if not self:
             raise UserError(_("No hay líneas seleccionadas."))
 

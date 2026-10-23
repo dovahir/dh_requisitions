@@ -49,7 +49,7 @@
                             type="object"
                             class="btn-primary"
                             invisible="state != 'draft'"
-                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
+                            groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"
                             confirm="¿Está seguro de que desea crear la entrega? Esta acción generará el albarán de salida hacia tránsito y reservará existencias."/>
 
                     <button name="action_open_block_wizard"
@@ -57,28 +57,28 @@
                             type="object"
                             class="btn-secondary"
                             invisible="state != 'draft' or not id or is_blocked"
-                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
+                            groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"/>
 
                     <button name="action_button_is_blocked"
                             string="Mostrar Solicitud"
                             type="object"
                             class="btn-secondary"
                             invisible="state != 'draft' or not id or not is_blocked"
-                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
+                            groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"
                             confirm="¿Está seguro de desbloquear esta solicitud? Estará disponible nuevamente para recibir partidas desde requisiciones."/>
 
                     <button name="action_button_draft"
                             string="Regresar a Borrador"
                             type="object"
                             invisible="state not in ('delivery_returned', 'cancel', 'receipt_cancelled')"
-                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
+                            groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"/>
 
                     <button name="action_button_cancel"
                             string="Cancelar"
                             type="object"
                             class="btn-outline-danger"
                             invisible="state in ('done_exact', 'done_partial', 'done_adjusted', 'cancel', 'delivery_returned')"
-                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
+                            groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"/>
 
                     <button name="action_print_transfer_report"
                             string="Imprimir Traspaso"
@@ -93,7 +93,7 @@
                             class="btn-secondary"
                             icon="fa-plus-circle"
                             invisible="state != 'draft' or is_blocked"
-                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
+                            groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"/>
 
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,delivery_created,in_transit,done_exact"/>
@@ -255,19 +255,21 @@
                                             class="text-warning"
                                             title="Sin existencias en Base - Disparar Solicitud de Compra"
                                             invisible="not suggest_purchase"
-                                            groups="purchase.group_purchase_user,dh_requisitions.group_requisitions_manager"/>
+                                            groups="dh_requisitions.group_stock_request_employee,purchase.group_purchase_user,dh_requisitions.group_requisitions_manager"/>
                                     <button name="action_open_split_wizard"
                                             type="object"
                                             icon="fa-code-fork"
                                             class="text-primary"
                                             title="Dividir cantidad y dejar cantidad pendiente de envío"
-                                            invisible="parent.state != 'draft'"/>
+                                            invisible="parent.state != 'draft'"
+                                            groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"/>
                                     <button name="action_mark_as_pending"
                                             type="object"
                                             icon="fa-clock-o"
                                             class="text-muted"
                                             title="Dejar como Pendiente de Envío"
                                             invisible="parent.state != 'draft'"
+                                            groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"
                                             confirm="¿Desea desvincular esta partida y dejarla en el pool de Pendientes de Envío para otro traslado?"/>
                                     <field name="notes" optional="show"/>
                                 </list>

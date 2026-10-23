@@ -449,7 +449,14 @@ class RequisitionSupplyRequestLine(models.Model):
                     domain.append(('requisition_line_id', '=', False))
 
                 existing = self.search(domain, limit=1)
-                if existing:
+                # Si el usuario es de planta y la línea existente pertenece a otro usuario o a Base, no alterar la línea ajena
+                is_planta_only = (
+                    self.env.user.has_group('dh_requisitions.group_stock_request_planta') and not (
+                        self.env.user.has_group('dh_requisitions.group_stock_request_employee') or
+                        self.env.user.has_group('dh_requisitions.group_requisitions_manager')
+                    )
+                )
+                if existing and not (is_planta_only and existing.create_uid != self.env.user):
                     existing.product_qty += qty
                     for alloc in existing.allocation_ids.filtered(lambda a: a.state != 'cancel'):
                         alloc.requested_qty = existing.product_qty
@@ -472,6 +479,8 @@ class RequisitionSupplyRequestLine(models.Model):
                     consolidated_records |= existing
                     continue
 
+            if not vals.get('requisition_line_id'):
+                vals['is_manual'] = True
             records_to_create.append(vals)
 
         created_records = super().create(records_to_create)
@@ -527,6 +536,14 @@ class RequisitionSupplyRequestLine(models.Model):
         return created_records | consolidated_records
 
     def write(self, vals):
+        if self.env.user.has_group('dh_requisitions.group_stock_request_planta') and not (
+            self.env.user.has_group('dh_requisitions.group_stock_request_employee') or
+            self.env.user.has_group('dh_requisitions.group_requisitions_manager')
+        ):
+            for line in self:
+                if line.create_uid != self.env.user:
+                    raise UserError(_("No tienes permisos para modificar líneas creadas por otros usuarios o derivadas del Almacén Base."))
+
         tracked = {'product_id', 'product_qty', 'lot_ids', 'notes'}
         has_tracked = any(f in vals for f in tracked)
         old_data = {}
@@ -581,6 +598,14 @@ class RequisitionSupplyRequestLine(models.Model):
                 ) % rec.request_id.name)
 
     def unlink(self):
+        if self.env.user.has_group('dh_requisitions.group_stock_request_planta') and not (
+            self.env.user.has_group('dh_requisitions.group_stock_request_employee') or
+            self.env.user.has_group('dh_requisitions.group_requisitions_manager')
+        ):
+            for line in self:
+                if line.create_uid != self.env.user:
+                    raise UserError(_("No tienes permisos para eliminar líneas creadas por otros usuarios o derivadas del Almacén Base."))
+
         allocations_to_clean = self.mapped('allocation_ids')
         for alloc in allocations_to_clean:
             if alloc.state in ('in_progress', 'done'):
@@ -615,6 +640,9 @@ class RequisitionSupplyRequestLine(models.Model):
     # -------------------------------------------------------------------------
     def action_mark_as_pending(self):
         """Desvincula la partida de la Solicitud de Suministro actual para dejarla pendiente de envío."""
+        if not (self.env.user.has_group('dh_requisitions.group_stock_request_employee') or
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
+            raise UserError(_("Se requiere pertenecer a Empleados Almacén Base o Administrador para marcar partidas como pendientes de envío."))
         for line in self:
             sr = line.request_id
             if sr and sr.state not in ('draft', False):
@@ -638,6 +666,9 @@ class RequisitionSupplyRequestLine(models.Model):
     def action_open_split_wizard(self):
         """Abre el asistente interactivo para enviar una cantidad parcial y dejar la cantidad remanente pendiente."""
         self.ensure_one()
+        if not (self.env.user.has_group('dh_requisitions.group_stock_request_employee') or
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
+            raise UserError(_("Se requiere pertenecer a Empleados Almacén Base o Administrador para dividir partidas."))
         if self.state not in ('draft', 'pending_assignment'):
             raise UserError(_("Solo se pueden dividir partidas que se encuentren en Borrador o Pendientes de Envío."))
         return {
@@ -655,10 +686,11 @@ class RequisitionSupplyRequestLine(models.Model):
     def action_create_purchase_request_line(self):
         """Genera una línea en Solicitud de Compra a partir de esta partida de suministro sin stock suficiente en Base."""
         self.ensure_one()
-        # Verificar permisos: Administrador de Requisiciones + Compras
-        if not (self.env.user.has_group('dh_requisitions.group_requisitions_manager') and
-                self.env.user.has_group('purchase.group_purchase_user')):
-            raise UserError(_("Para disparar una solicitud de compra desde suministro debe pertenecer obligatoriamente a Administrador de Requisiciones y al área de Compras."))
+        # Verificar permisos: Administrador, Base o Compras
+        if not (self.env.user.has_group('dh_requisitions.group_stock_request_employee') or
+                self.env.user.has_group('purchase.group_purchase_user') or
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
+            raise UserError(_("Para disparar una solicitud de compra desde suministro debe pertenecer a Empleados Almacén Base, Compras o Administrador."))
 
         # Buscar si ya existe una solicitud de compra activa para esta misma necesidad
         existing_pr = self.env['requisition.purchase.request.line'].search([

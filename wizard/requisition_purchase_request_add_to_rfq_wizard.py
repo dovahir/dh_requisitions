@@ -95,6 +95,13 @@ class RequisitionPurchaseRequestAddToRfqWizard(models.TransientModel):
 
     def add_to_rfq(self):
         self.ensure_one()
+        is_purchase_manager = (
+            self.env.user.has_group('purchase.group_purchase_manager') or
+            self.env.user.has_group('dh_requisitions.group_requisitions_manager')
+        )
+        if not is_purchase_manager:
+            raise UserError(_("Se requiere pertenecer a Administradores de Compras o Administrador para añadir líneas a una Solicitud de Presupuesto (RFQ)."))
+
         selected_lines = self.line_ids.filtered('selected')
         if not selected_lines:
             raise UserError(_("Debe seleccionar al menos una partida para transferir a la cotización."))

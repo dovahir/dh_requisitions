@@ -73,7 +73,7 @@ class Requisitions(models.Model):
 
     @api.model
     def _domain_user_id(self):
-        """Filtra el campo autoriza para mostrar solo usuarios con rol Aprobador o Administrador en Odoo 19."""
+        """Filtra el campo autoriza para mostrar solo usuarios con rol Líder/Aprobador o Administrador en Odoo 19."""
         group_approver = self.env.ref('dh_requisitions.group_requisitions_approver', raise_if_not_found=False)
         group_manager = self.env.ref('dh_requisitions.group_requisitions_manager', raise_if_not_found=False)
         group_ids = [g.id for g in (group_approver, group_manager) if g]
@@ -476,8 +476,8 @@ class Requisitions(models.Model):
 
     def action_approve(self):
         if not (self.env.user.has_group('dh_requisitions.group_requisitions_approver') or
-                self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Solo los usuarios con rol Aprobador o Administrador pueden aprobar requisiciones."))
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager')) :
+            raise UserError(_("Solo los usuarios con rol Líder / Aprobador o Administrador pueden aprobar requisiciones."))
         is_admin = self.env.user.has_group('dh_requisitions.group_requisitions_manager') or self.env.is_admin()
         for rec in self:
             if rec.state != 'to_approve':
@@ -504,7 +504,7 @@ class Requisitions(models.Model):
         self.ensure_one()
         if not (self.env.user.has_group('dh_requisitions.group_requisitions_approver') or
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Solo los usuarios con rol Aprobador o Administrador pueden rechazar requisiciones."))
+            raise UserError(_("Solo los usuarios con rol Líder / Aprobador o Administrador pueden rechazar requisiciones."))
         return {
             'name': _('Rechazar Requisición'),
             'type': 'ir.actions.act_window',
@@ -547,6 +547,8 @@ class Requisitions(models.Model):
     def action_open_cancel_wizard(self):
         """Abre el asistente interactivo para solicitar el motivo de cancelación en requisiciones aprobadas o en proceso."""
         self.ensure_one()
+        if not self.env.user.has_group('dh_requisitions.group_requisitions_manager'):
+            raise UserError(_("Solo los Administradores de Requisiciones pueden cancelar requisiciones autorizadas o en proceso."))
         if self.state not in ('approved', 'in_progress', 'partially_done'):
             raise UserError(_("Solo se pueden cancelar requisiciones aprobadas o en proceso mediante este asistente."))
         return {
@@ -610,9 +612,9 @@ class Requisitions(models.Model):
     def action_create_service_rfq(self):
         """Genera una Solicitud de Cotización (RFQ de Compra) directa para las líneas de servicios pendientes."""
         self.ensure_one()
-        if not (self.env.user.has_group('purchase.group_purchase_user') and
+        if not (self.env.user.has_group('purchase.group_purchase_manager') or
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Compras para generar cotizaciones de servicios."))
+            raise UserError(_("Se requiere pertenecer a Administradores de Compras o a Administradores de Requisiciones para generar cotizaciones de servicios."))
 
         service_lines = self.service_line_ids.filtered(
             lambda l: l.line_state not in ('done', 'cancel') and l.qty_pending > 0
@@ -685,9 +687,9 @@ class Requisitions(models.Model):
     def action_open_delivery_wizard(self):
         """Abre el asistente interactivo para generar despachos y entregas de almacén."""
         self.ensure_one()
-        if not (self.env.user.has_group('stock.group_stock_user') and
+        if not (self.env.user.has_group('dh_requisitions.group_stock_request_planta') or
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Inventario para generar entregas de almacén."))
+            raise UserError(_("Se requiere pertenecer al personal de almacén de obra/base o a Administradores de Requisiciones para generar entregas de almacén."))
         if self.state not in ('approved', 'in_progress', 'partially_done'):
             raise UserError(_("Solo se pueden generar despachos para requisiciones aprobadas o en proceso."))
         eligible_lines = self.line_ids.filtered(
@@ -708,9 +710,9 @@ class Requisitions(models.Model):
     def action_create_purchase_request(self):
         """Abre el asistente interactivo para solicitar compra de partidas con cantidad pendiente."""
         self.ensure_one()
-        if not (self.env.user.has_group('purchase.group_purchase_user') and
+        if not (self.env.user.has_group('purchase.group_purchase_user') or
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Compras para generar solicitudes de compra."))
+            raise UserError(_("Se requiere pertenecer al área de Compras o a Administradores de Requisiciones para generar solicitudes de compra."))
         if self.state not in ('approved', 'in_progress', 'partially_done'):
             raise UserError(_("Solo se pueden generar solicitudes de compra para requisiciones aprobadas o en proceso."))
 
@@ -904,9 +906,9 @@ class Requisitions(models.Model):
     def action_open_supply_request_wizard(self):
         """Abre el asistente interactivo para seleccionar líneas de la requisición y programar el suministro desde almacén origen a obra."""
         self.ensure_one()
-        if not (self.env.user.has_group('stock.group_stock_user') and
+        if not (self.env.user.has_group('dh_requisitions.group_stock_request_planta') or
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Inventario para solicitar suministros."))
+            raise UserError(_("Se requiere pertenecer al personal de almacén de obra/base o a Administradores de Requisiciones para solicitar suministros."))
         if self.state not in ('approved', 'in_progress', 'partially_done'):
             raise UserError(_("Solo se pueden generar solicitudes de suministro para requisiciones aprobadas o en proceso."))
         if not self.is_not_base_warehouse:

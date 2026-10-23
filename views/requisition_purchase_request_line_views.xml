@@ -17,13 +17,15 @@
                             string="Añadir a RFQ"
                             type="object"
                             icon="fa-shopping-cart"
-                            class="btn-primary"/>
+                            class="btn-primary"
+                            groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_cancel_multiple"
                             string="Cancelar seleccionadas"
                             type="object"
                             icon="fa-times"
                             class="btn-danger"
-                            confirm="¿Está seguro de cancelar las solicitudes de compra seleccionadas?"/>
+                            confirm="¿Está seguro de cancelar las solicitudes de compra seleccionadas?"
+                            groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
                 </header>
                 <field name="priority" optional="show" nolabel="1"/>
                 <field name="product_id" options="{'no_create': True}"/>
@@ -62,14 +64,14 @@
                         class="text-info"
                         title="Agregar a Pendientes de Envío para traslado Base -> Obra"
                         invisible="has_pending_supply or state in ('cancel', 'purchased')"
-                        groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
+                        groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"/>
                 <button name="action_cancel_line"
                         type="object"
                         icon="fa-times-circle"
                         class="text-danger"
                         title="Cancelar partida"
                         invisible="state in ('cancel', 'purchased')"
-                        groups="purchase.group_purchase_user,purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
+                        groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
                         confirm="¿Está seguro de cancelar esta solicitud de compra?"/>
             </list>
         </field>
@@ -88,20 +90,20 @@
                             class="btn-primary"
                             icon="fa-shopping-cart"
                             invisible="state in ('cancel', 'purchased')"
-                            groups="purchase.group_purchase_user,purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
+                            groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_add_to_pending_supply"
                             string="Agregar a Pendientes de Envío"
                             type="object"
                             class="btn-secondary"
                             icon="fa-truck"
                             invisible="has_pending_supply or state in ('cancel', 'purchased')"
-                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
+                            groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_cancel_line"
                             string="Cancelar Partida"
                             type="object"
                             class="btn-secondary"
                             invisible="state in ('cancel', 'purchased')"
-                            groups="purchase.group_purchase_user,purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
+                            groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
                             confirm="¿Está seguro de cancelar esta solicitud de compra?"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="pending,in_progress,to_receive,partially_purchased,purchased"/>

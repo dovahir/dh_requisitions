@@ -50,7 +50,7 @@ class TestAuditEdgeCases(common.TransactionCase):
         })
 
         # Empleados y usuarios
-        cls.group_user = cls.env.ref('dh_requisitions.group_requisitions_user')
+        cls.group_user = cls.env.ref('dh_requisitions.group_requisitions_requester')
         cls.group_approver = cls.env.ref('dh_requisitions.group_requisitions_approver')
         cls.group_manager = cls.env.ref('dh_requisitions.group_requisitions_manager')
         cls.group_stock = cls.env.ref('stock.group_stock_user')

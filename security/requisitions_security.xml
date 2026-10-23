@@ -2,36 +2,81 @@
 <odoo>
     <data>
         <!-- ============================================================= -->
-        <!-- PRIVILEGIO Y GRUPOS DE SEGURIDAD (ODOO 19)                    -->
+        <!-- PRIVILEGIOS Y GRUPOS DE SEGURIDAD (ODOO 19)                    -->
         <!-- ============================================================= -->
 
-        <!-- Privilegio Requisiciones dentro de la categoría nativa -->
+        <!-- 1. Privilegio Requisiciones -->
         <record id="res_groups_privilege_requisitions" model="res.groups.privilege">
             <field name="name">Requisiciones</field>
             <field name="category_id" ref="base.module_category_supply_chain"/>
+            <field name="sequence">10</field>
         </record>
 
-        <!-- 1. Grupo: Usuario -->
-        <record id="group_requisitions_user" model="res.groups">
-            <field name="name">Usuario</field>
+        <!-- 2. Privilegio Solicitudes de Suministro -->
+        <record id="res_groups_privilege_stock_request" model="res.groups.privilege">
+            <field name="name">Solicitudes de Suministro</field>
+            <field name="category_id" ref="base.module_category_supply_chain"/>
+            <field name="sequence">20</field>
+        </record>
+
+        <!-- ============================================================= -->
+        <!-- GRUPOS: REQUISICIONES                                         -->
+        <!-- ============================================================= -->
+        <!-- 1.1 Grupo: Solicitante -->
+        <record id="group_requisitions_requester" model="res.groups">
+            <field name="name">Solicitante</field>
             <field name="privilege_id" ref="res_groups_privilege_requisitions"/>
-            <field name="comment">Permite visualizar y crear requisiciones de productos y servicios.</field>
+            <field name="sequence">10</field>
+            <field name="comment">Permite visualizar y crear requisiciones de su departamento.</field>
         </record>
 
-        <!-- 2. Grupo: Aprobador -->
+        <!-- 1.2 Grupo: Líder / Aprobador -->
         <record id="group_requisitions_approver" model="res.groups">
-            <field name="name">Aprobador</field>
+            <field name="name">Líder / Aprobador</field>
             <field name="privilege_id" ref="res_groups_privilege_requisitions"/>
-            <field name="implied_ids" eval="[(4, ref('group_requisitions_user'))]"/>
-            <field name="comment">Permite aprobar requisiciones además de crearlas y consultarlas.</field>
+            <field name="sequence">20</field>
+            <field name="implied_ids" eval="[(4, ref('group_requisitions_requester'))]"/>
+            <field name="comment">Permite autorizar o rechazar requisiciones de la compañía y ajustar cantidades en revisión.</field>
         </record>
 
-        <!-- 3. Grupo: Administrador -->
+        <!-- 1.3 Grupo: Administrador -->
         <record id="group_requisitions_manager" model="res.groups">
             <field name="name">Administrador</field>
             <field name="privilege_id" ref="res_groups_privilege_requisitions"/>
-            <field name="implied_ids" eval="[(4, ref('group_requisitions_approver'))]"/>
-            <field name="comment">Acceso total a la gestión de requisiciones (sin permiso para eliminarlas).</field>
+            <field name="sequence">30</field>
+            <field name="implied_ids" eval="[(6, 0, [ref('group_requisitions_approver')])]"/>
+            <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+            <field name="comment">Acceso omnímodo a la gestión de requisiciones y configuración.</field>
+        </record>
+
+        <!-- ============================================================= -->
+        <!-- GRUPOS: SOLICITUDES DE SUMINISTRO                             -->
+        <!-- ============================================================= -->
+        <!-- 2.1 Grupo: Usuarios (Consulta) -->
+        <record id="group_stock_request_only_read" model="res.groups">
+            <field name="name">Usuarios (Consulta)</field>
+            <field name="privilege_id" ref="res_groups_privilege_stock_request"/>
+            <field name="sequence">10</field>
+            <field name="comment">Permite consultar el seguimiento de solicitudes de suministro y traslados.</field>
+        </record>
+
+        <!-- 2.2 Grupo: Empleado almacén obra -->
+        <record id="group_stock_request_planta" model="res.groups">
+            <field name="name">Empleado almacén obra</field>
+            <field name="privilege_id" ref="res_groups_privilege_stock_request"/>
+            <field name="sequence">20</field>
+            <field name="implied_ids" eval="[(4, ref('group_stock_request_only_read')), (4, ref('stock.group_stock_user'))]"/>
+            <field name="comment">Permite gestionar entregas locales al solicitante, pedir suministros y agregar líneas manuales a solicitudes existentes.</field>
+        </record>
+
+        <!-- 2.3 Grupo: Empleado almacén base -->
+        <record id="group_stock_request_employee" model="res.groups">
+            <field name="name">Empleado almacén base</field>
+            <field name="privilege_id" ref="res_groups_privilege_stock_request"/>
+            <field name="sequence">30</field>
+            <field name="implied_ids" eval="[(4, ref('group_stock_request_planta'))]"/>
+            <field name="user_ids" eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"/>
+            <field name="comment">Permite realizar cortes de embarque, generar salidas a tránsito y gestionar el pool de pendientes.</field>
         </record>
 
         <!-- ============================================================= -->
@@ -79,10 +124,10 @@
 
         <!-- 1. Reglas para Requisiciones de Cabecera -->
         <!-- 1.1 Lectura: creador, solicitante o departamento en cualquier estado -->
-        <record id="requisitions_user_department_read_rule" model="ir.rule">
-            <field name="name">Requisiciones: Empleado/Creador/Departamento Consulta</field>
+        <record id="requisitions_requester_department_read_rule" model="ir.rule">
+            <field name="name">Requisiciones: Solicitante/Empleado/Departamento Consulta</field>
             <field name="model_id" ref="model_requisitions"/>
-            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_user'))]"/>
+            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_requester'))]"/>
             <field name="perm_read" eval="1"/>
             <field name="perm_write" eval="0"/>
             <field name="perm_create" eval="0"/>
@@ -91,10 +136,10 @@
         </record>
 
         <!-- 1.2 Escritura y Eliminación: solo en estado borrador -->
-        <record id="requisitions_user_department_write_rule" model="ir.rule">
-            <field name="name">Requisiciones: Empleado/Creador/Departamento Borrador Edición</field>
+        <record id="requisitions_requester_department_write_rule" model="ir.rule">
+            <field name="name">Requisiciones: Solicitante/Empleado/Departamento Borrador Edición</field>
             <field name="model_id" ref="model_requisitions"/>
-            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_user'))]"/>
+            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_requester'))]"/>
             <field name="perm_read" eval="0"/>
             <field name="perm_write" eval="1"/>
             <field name="perm_create" eval="1"/>
@@ -120,12 +165,23 @@
             <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
         </record>
 
+        <record id="requisitions_purchase_user_read_rule" model="ir.rule">
+            <field name="name">Requisiciones: Compras Consulta</field>
+            <field name="model_id" ref="model_requisitions"/>
+            <field name="groups" eval="[(4, ref('purchase.group_purchase_user'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
         <!-- 2. Reglas para Líneas de Requisición -->
         <!-- 2.1 Lectura: líneas de requisiciones visibles para el usuario -->
-        <record id="requisitions_line_user_read_rule" model="ir.rule">
-            <field name="name">Línea Requisición: Empleado/Creador/Departamento Consulta</field>
+        <record id="requisitions_line_requester_read_rule" model="ir.rule">
+            <field name="name">Línea Requisición: Solicitante/Empleado/Departamento Consulta</field>
             <field name="model_id" ref="model_requisitions_line"/>
-            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_user'))]"/>
+            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_requester'))]"/>
             <field name="perm_read" eval="1"/>
             <field name="perm_write" eval="0"/>
             <field name="perm_create" eval="0"/>
@@ -134,10 +190,10 @@
         </record>
 
         <!-- 2.2 Escritura y Eliminación: solo cuando la requisición está en borrador -->
-        <record id="requisitions_line_user_write_rule" model="ir.rule">
-            <field name="name">Línea Requisición: Empleado/Creador/Departamento Borrador Edición</field>
+        <record id="requisitions_line_requester_write_rule" model="ir.rule">
+            <field name="name">Línea Requisición: Solicitante/Empleado/Departamento Borrador Edición</field>
             <field name="model_id" ref="model_requisitions_line"/>
-            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_user'))]"/>
+            <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_requester'))]"/>
             <field name="perm_read" eval="0"/>
             <field name="perm_write" eval="1"/>
             <field name="perm_create" eval="1"/>
@@ -156,6 +212,17 @@
             <field name="name">Línea Requisición: Personal de Inventario Consulta</field>
             <field name="model_id" ref="model_requisitions_line"/>
             <field name="groups" eval="[(4, ref('stock.group_stock_user'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+            <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+        </record>
+
+        <record id="requisitions_line_purchase_user_read_rule" model="ir.rule">
+            <field name="name">Línea Requisición: Compras Consulta</field>
+            <field name="model_id" ref="model_requisitions_line"/>
+            <field name="groups" eval="[(4, ref('purchase.group_purchase_user'))]"/>
             <field name="perm_read" eval="1"/>
             <field name="perm_write" eval="0"/>
             <field name="perm_create" eval="0"/>

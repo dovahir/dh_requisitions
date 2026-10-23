@@ -321,10 +321,10 @@ class RequisitionSupplyRequest(models.Model):
     # ACCIONES DE WORKFLOW Y ESTADOS
     # -------------------------------------------------------------------------
     def _check_supply_request_permissions(self):
-        """Verifica que el usuario pertenezca al área de inventario Y administrador de requisiciones."""
-        if not (self.env.user.has_group('stock.group_stock_user') and
+        """Verifica que el usuario pertenezca al rol de Empleado almacén base o Administrador."""
+        if not (self.env.user.has_group('dh_requisitions.group_stock_request_employee') or
                 self.env.user.has_group('dh_requisitions.group_requisitions_manager')):
-            raise UserError(_("Se requiere pertenecer obligatoriamente a Administradores de Requisiciones y al área de Inventario para gestionar solicitudes de suministro."))
+            raise UserError(_("Se requiere pertenecer a Empleados Almacén Base o Administrador para realizar esta acción sobre la solicitud de suministro."))
 
     def action_open_add_pending_wizard(self):
         """Abre el asistente para incorporar partidas desde el pool de Pendientes de Envío a esta solicitud."""

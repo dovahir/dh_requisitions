@@ -16,7 +16,7 @@ class TestRequisitionMultiCompany(common.TransactionCase):
             'login': 'user_b_test@example.com',
             'company_id': cls.company_b.id,
             'company_ids': [(6, 0, [cls.company_b.id])],
-            'group_ids': [(6, 0, [cls.env.ref('base.group_user').id, cls.env.ref('dh_requisitions.group_requisitions_user').id])],
+            'group_ids': [(6, 0, [cls.env.ref('base.group_user').id, cls.env.ref('dh_requisitions.group_requisitions_requester').id])],
         })
 
         cls.employee_a = cls.env['hr.employee'].create({

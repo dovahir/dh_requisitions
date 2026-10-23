@@ -1,44 +1,53 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data>
+        <!-- Menú Raíz Requisiciones (Dinámico según submenús visibles) -->
         <menuitem id="menu_requisitions_root"
                   name="Requisiciones"
-                  web_icon="dh_requisitions,static/description/icon.png"
-                  groups="dh_requisitions.group_requisitions_user"/>
+                  web_icon="dh_requisitions,static/description/icon.png"/>
                   
         <menuitem id="menu_requisitions_main"
                   name="Requisiciones"
                   parent="menu_requisitions_root"
                   action="action_requisitions"
+                  groups="dh_requisitions.group_requisitions_requester"
                   sequence="10"/>
+
+        <!-- Solicitudes de Suministro con Pendientes de Envío Anidado -->
+        <menuitem id="menu_requisition_supply_request_parent"
+                  name="Solicitudes de Suministro"
+                  parent="menu_requisitions_root"
+                  groups="dh_requisitions.group_stock_request_only_read"
+                  sequence="20"/>
 
         <menuitem id="menu_requisition_supply_request_main"
                   name="Solicitudes de Suministro"
-                  parent="menu_requisitions_root"
+                  parent="menu_requisition_supply_request_parent"
                   action="action_requisition_supply_request"
-                  groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
-                  sequence="20"/>
+                  sequence="10"/>
 
         <menuitem id="menu_requisition_supply_pending_lines_main"
                   name="Pendientes de Envío"
-                  parent="menu_requisitions_root"
+                  parent="menu_requisition_supply_request_parent"
                   action="action_requisition_supply_pending_lines"
-                  groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
-                  sequence="25"/>
+                  groups="dh_requisitions.group_stock_request_employee"
+                  sequence="20"/>
 
+        <!-- Solicitudes de Compra -->
         <menuitem id="menu_requisition_purchase_request_line_main"
                   name="Solicitudes de Compra"
                   parent="menu_requisitions_root"
                   action="action_requisition_purchase_request_line"
-                  groups="purchase.group_purchase_user,purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
+                  groups="purchase.group_purchase_user"
                   sequence="30"/>
 
-        <menuitem id="menu_requisition_allocation_main"
+        <!-- Asignaciones de Suministro: Oculto e Invisible -->
+        <!-- <menuitem id="menu_requisition_allocation_main"
                   name="Asignaciones de Suministro"
                   parent="menu_requisitions_root"
                   action="action_requisition_allocation"
                   groups="dh_requisitions.group_requisitions_manager"
-                  sequence="35"/>
+                  sequence="35"/> -->
 
         <!-- Submenú Configuración -->
         <menuitem id="menu_requisitions_config"
@@ -73,21 +82,20 @@
         <menuitem id="menu_stock_supplies_category"
                   name="Suministrar a Obras"
                   parent="stock.menu_stock_warehouse_mgmt"
-                  groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
+                  groups="dh_requisitions.group_stock_request_only_read"
                   sequence="10"/>
 
         <menuitem id="menu_stock_requisition_supply_request"
                   name="Solicitudes de Suministro"
                   parent="menu_stock_supplies_category"
                   action="action_requisition_supply_request"
-                  groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
                   sequence="10"/>
 
         <menuitem id="menu_stock_requisition_supply_pending_lines"
                   name="Pendientes de Envío"
                   parent="menu_stock_supplies_category"
                   action="action_requisition_supply_pending_lines"
-                  groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"
+                  groups="dh_requisitions.group_stock_request_employee"
                   sequence="20"/>
     </data>
 </odoo>

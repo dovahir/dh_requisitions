@@ -52,16 +52,16 @@
                             invisible="state != 'draft'"/>
                     <button name="action_draft" string="Volver a Borrador" type="object"
                             invisible="state not in ('cancel', 'rejected', 'to_approve')"
-                            groups="dh_requisitions.group_requisitions_user,dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
+                            groups="dh_requisitions.group_requisitions_requester,dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <!-- Botones operativos en estado aprobado / en proceso ordenados -->
                     <button name="action_open_delivery_wizard" string="Entregar Productos" type="object"
                             class="btn-primary"
                             invisible="state not in ('approved', 'in_progress', 'partially_done') or not has_deliverable_products"
-                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
+                            groups="dh_requisitions.group_stock_request_planta,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_open_supply_request_wizard" string="Solicitar Suministro" type="object"
                             class="btn btn-secondary"
                             invisible="state not in ('approved', 'in_progress', 'partially_done') or not is_not_base_warehouse or not has_deliverable_products"
-                            groups="stock.group_stock_user,dh_requisitions.group_requisitions_manager"/>
+                            groups="dh_requisitions.group_stock_request_planta,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_create_purchase_request" string="Solicitar Compra" type="object"
                             class="btn btn-secondary"
                             invisible="state not in ('approved', 'in_progress', 'partially_done')"
@@ -132,7 +132,7 @@
                         </group>
                     </group>
 
-                    <!-- Grupo: Otra información (Restringido a Aprobadores y Administradores) -->
+                    <!-- Grupo: Otra información (Restringido a Líderes / Aprobadores y Administradores) -->
                     <group string="Otra información" name="other_info"
                            groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager">
                         <group>
