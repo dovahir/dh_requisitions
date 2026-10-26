@@ -54,13 +54,21 @@ Características principales:
         "wizard/requisition_purchase_request_add_to_rfq_wizard_views.xml",
         "wizard/requisition_allocation_cancel_wizard_views.xml",
         "views/requisition_allocation_views.xml",
+        "views/requisition_dashboard_views.xml",
         "views/menus.xml",
         "report/paper_format.xml",
         "report/requisition_supply_transfer_report.xml",
     ],
 
-
-    "assets": {},
+    "assets": {
+        "web.assets_backend": [
+            "dh_requisitions/static/src/dashboard/**/*",
+            ("remove", "dh_requisitions/static/src/dashboard/**/*.dark.scss"),
+        ],
+        "web.assets_web_dark": [
+            "dh_requisitions/static/src/dashboard/**/*.dark.scss",
+        ],
+    },
     "license": "LGPL-3",
     "installable": True,
     "auto_install": False,

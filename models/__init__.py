@@ -12,3 +12,4 @@ from . import stock_move
 from . import requisition_allocation
 from . import res_config_settings
 from . import purchase_order
+from . import requisition_dashboard_kpi

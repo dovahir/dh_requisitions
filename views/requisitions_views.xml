@@ -46,10 +46,12 @@
                             class="btn-primary" invisible="state != 'to_approve'"
                             groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_reject_wizard" string="Rechazar" type="object"
-                            class="btn btn-secondary" invisible="state != 'to_approve'"
+                            class="btn-secondary" invisible="state != 'to_approve'"
                             groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_draft" string="Volver a Borrador" type="object"
+                            class="btn-secondary"
                             invisible="state not in ('cancel', 'rejected', 'to_approve')"
+                            confirm="¿Está seguro de regresar esta requisición a borrador?"
                             groups="dh_requisitions.group_requisitions_requester,dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <!-- Botones operativos en estado aprobado / en proceso ordenados -->
                     <button name="action_open_delivery_wizard" string="Entregar Productos" type="object"
@@ -57,21 +59,24 @@
                             invisible="state not in ('approved', 'in_progress', 'partially_done') or not has_deliverable_products"
                             groups="dh_requisitions.group_stock_request_planta,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_open_supply_request_wizard" string="Solicitar Suministro" type="object"
-                            class="btn btn-secondary"
+                            class="btn-secondary"
                             invisible="state not in ('approved', 'in_progress', 'partially_done') or not is_not_base_warehouse or not has_deliverable_products"
                             groups="dh_requisitions.group_stock_request_planta,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_create_purchase_request" string="Solicitar Compra" type="object"
-                            class="btn btn-secondary"
+                            class="btn-secondary"
                             invisible="state not in ('approved', 'in_progress', 'partially_done')"
                             groups="purchase.group_purchase_user,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_create_service_rfq" string="Crear RFQ de Servicios" type="object"
-                            class="btn btn-secondary"
+                            class="btn-secondary"
                             invisible="state not in ('approved', 'in_progress') or not has_services"
                             groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_draft" string="Regresar a Borrador" type="object"
+                            class="btn-secondary"
                             invisible="state != 'approved'"
+                            confirm="¿Está seguro de regresar esta requisición aprobada a borrador?"
                             groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_open_cancel_wizard" string="Cancelar" type="object"
+                            class="btn-secondary"
                             invisible="state in ('cancel', 'rejected', 'done')"
                             groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <field name="state" widget="statusbar"
@@ -109,12 +114,12 @@
                         <field name="has_deliverable_products" invisible="1"/>
                         <field name="is_not_base_warehouse" invisible="1"/>
                     </div>
-                    <group>
+                    <group name="main_group">
                         <!-- Grupo: Datos de Requisición -->
                         <group string="Datos de Requisición" name="requisition_data">
                             <field name="employee_id" readonly="not can_edit_lines"
                                    options="{'no_create': True, 'no_create_edit': True}"/>
-                            <field name="department_id"/>
+                            <field name="department_id" options="{'no_create': True, 'no_create_edit': True}"/>
                             <field name="user_id" readonly="not can_edit_lines"
                                    options="{'no_create': True, 'no_create_edit': True}"
                                    required="1"/>
@@ -134,14 +139,14 @@
                     <!-- Grupo: Otra información (Restringido a Líderes / Aprobadores y Administradores) -->
                     <group string="Otra información" name="other_info"
                            groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager">
-                        <group>
+                        <group name="other_info_left">
                             <field name="create_uid" string="Elaboró" options="{'no_open': True}"/>
                             <field name="approved_by_id" invisible="not approved_by_id" options="{'no_open': True}"/>
                             <field name="rejected_by_id" invisible="not rejected_by_id" options="{'no_open': True}"/>
                             <field name="cancelled_by_id" invisible="not cancelled_by_id" options="{'no_open': True}"/>
                             <field name="cancel_reason" invisible="not cancelled_by_id and not cancel_reason"/>
                         </group>
-                        <group>
+                        <group name="other_info_right">
                             <field name="date_created" string="Fecha de Creación"/>
                             <field name="date_approved" string="Fecha de Aprobación" invisible="not date_approved"/>
                             <field name="date_rejected" string="Fecha de Rechazo" invisible="not date_rejected"/>
@@ -168,7 +173,7 @@
                                     <field name="qty_pending" readonly="1" optional="show"/>
                                     <field name="qty_done" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
-                                    <field name="product_uom_id"/>
+                                    <field name="product_uom_id" options="{'no_create': True, 'no_open': True}"/>
                                     <field name="note"/>
                                     <field name="line_state" widget="badge" optional="show"
                                             decoration-info="line_state in ('draft', 'pending')"
@@ -197,7 +202,7 @@
                                     <field name="qty_done" readonly="1" optional="show"/>
                                     <field name="qty_pending" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
-                                    <field name="product_uom_id"/>
+                                    <field name="product_uom_id" options="{'no_create': True, 'no_open': True}"/>
                                     <field name="note"/>
                                     <field name="custody_state" widget="badge" optional="show"
                                            decoration-info="custody_state == 'in_custody'"
@@ -230,7 +235,7 @@
                                     <field name="qty_done" readonly="1" optional="show"/>
                                     <field name="qty_pending" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
-                                    <field name="product_uom_id"/>
+                                    <field name="product_uom_id" options="{'no_create': True, 'no_open': True}"/>
                                     <field name="custody_state" widget="badge" optional="show"
                                            decoration-info="custody_state == 'in_custody'"
                                            decoration-success="custody_state == 'returned'"
@@ -263,7 +268,7 @@
                                     <field name="qty_done" readonly="1" optional="show"/>
                                     <field name="qty_pending" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
-                                    <field name="product_uom_id"/>
+                                    <field name="product_uom_id" options="{'no_create': True, 'no_open': True}"/>
                                     <field name="line_state" widget="badge" optional="show"
                                             decoration-info="line_state in ('draft', 'pending')"
                                             decoration-warning="line_state in ('partial_stock', 'partial_purchase', 'partial_mixed', 'partially_done')"
@@ -320,39 +325,78 @@
         </field>
     </record>
 
-    <!-- Vista Kanban -->
+    <!-- Vista Kanban Odoo 19 -->
     <record id="requisitions_view_kanban" model="ir.ui.view">
         <field name="name">requisitions.view.kanban</field>
         <field name="model">requisitions</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="state">
+            <kanban default_group_by="state" sample="1">
                 <field name="name"/>
                 <field name="employee_id"/>
+                <field name="department_id"/>
                 <field name="date_required"/>
                 <field name="state"/>
                 <field name="priority"/>
                 <templates>
                     <t t-name="card">
-                        <div class="oe_kanban_global_click">
+                        <main class="mb-2">
                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                <strong><field name="name"/></strong>
-                                <field name="state" widget="badge"/>
+                                <span class="fw-bold fs-6 text-primary"><field name="name"/></span>
+                                <field name="state" widget="badge"
+                                       decoration-info="state == 'draft'"
+                                       decoration-warning="state in ('to_approve', 'partially_done')"
+                                       decoration-primary="state in ('approved', 'in_progress')"
+                                       decoration-success="state == 'done'"
+                                       decoration-muted="state == 'cancel'"
+                                       decoration-danger="state == 'rejected'"/>
                             </div>
-                            <div>
+                            <div class="text-muted small">
                                 <i class="fa fa-user me-1" title="Solicita"/>
                                 <field name="employee_id"/>
                             </div>
-                            <div class="d-flex justify-content-between align-items-center text-muted small mt-1">
-                                <span>
-                                    <i class="fa fa-calendar me-1" title="Fecha Requerida"/>
-                                    <field name="date_required"/>
-                                </span>
-                                <field name="priority"/>
+                            <div class="text-muted small" invisible="not department_id">
+                                <i class="fa fa-building-o me-1" title="Departamento"/>
+                                <field name="department_id"/>
                             </div>
-                        </div>
+                        </main>
+                        <footer class="d-flex justify-content-between align-items-center pt-2 border-top small text-muted">
+                            <span>
+                                <i class="fa fa-calendar me-1" title="Fecha Requerida"/>
+                                <field name="date_required"/>
+                            </span>
+                            <div class="ms-auto">
+                                <field name="priority" widget="priority"/>
+                            </div>
+                        </footer>
                     </t>
                 </templates>
             </kanban>
+        </field>
+    </record>
+
+    <!-- Vista Gráfica -->
+    <record id="requisitions_view_graph" model="ir.ui.view">
+        <field name="name">requisitions.view.graph</field>
+        <field name="model">requisitions</field>
+        <field name="arch" type="xml">
+            <graph string="Análisis de Requisiciones" type="bar" sample="1">
+                <field name="warehouse_id"/>
+                <field name="state"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Vista Pivote -->
+    <record id="requisitions_view_pivot" model="ir.ui.view">
+        <field name="name">requisitions.view.pivot</field>
+        <field name="model">requisitions</field>
+        <field name="arch" type="xml">
+            <pivot string="Matriz Analítica de Requisiciones" sample="1">
+                <field name="warehouse_id" type="row"/>
+                <field name="department_id" type="row"/>
+                <field name="state" type="col"/>
+                <field name="priority" type="col"/>
+            </pivot>
         </field>
     </record>
 
@@ -362,6 +406,11 @@
         <field name="model">requisitions</field>
         <field name="arch" type="xml">
             <search>
+                <searchpanel>
+                    <field name="state" icon="fa-filter" enable_counters="1" select="multi"/>
+                    <field name="warehouse_id" icon="fa-building" enable_counters="1"/>
+                    <field name="department_id" icon="fa-users" enable_counters="1"/>
+                </searchpanel>
                 <field name="name"/>
                 <field name="employee_id"/>
                 <field name="department_id"/>

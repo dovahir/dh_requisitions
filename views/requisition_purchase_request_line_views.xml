@@ -200,6 +200,10 @@
         <field name="model">requisition.purchase.request.line</field>
         <field name="arch" type="xml">
             <search>
+                <searchpanel>
+                    <field name="state" icon="fa-filter" enable_counters="1" select="multi"/>
+                    <field name="warehouse_id" icon="fa-building" enable_counters="1"/>
+                </searchpanel>
                 <field name="name" string="Referencia / Nombre"/>
                 <field name="product_id" string="Producto"/>
                 <field name="requisition_id" string="Requisición"/>

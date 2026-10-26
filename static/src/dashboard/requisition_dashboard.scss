@@ -1,0 +1,137 @@
+.o_requisitions_dashboard {
+    background-color: var(--o-webclient-background-color, var(--bs-body-bg, #f8fafc));
+    color: var(--body-color, var(--bs-body-color, inherit));
+    min-height: 100%;
+
+    .o_req_hero,
+    .o_req_empty_state,
+    .o_req_loading_state {
+        background-color: var(--o-view-background-color, var(--bs-card-bg, #ffffff));
+        border-color: var(--border-color, var(--bs-border-color, #e2e8f0)) !important;
+
+        .o_req_title {
+            font-size: 1.5rem;
+            letter-spacing: -0.02em;
+            color: var(--body-color, var(--bs-body-color, #0f172a));
+        }
+    }
+
+    .o_kpi_card {
+        background-color: var(--o-view-background-color, var(--bs-card-bg, #ffffff));
+        color: var(--body-color, var(--bs-body-color, inherit));
+        border-radius: 0.85rem;
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+        border: 1px solid var(--border-color, var(--bs-border-color, #edf2f7)) !important;
+        position: relative;
+        overflow: hidden;
+
+        &:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.08) !important;
+            border-color: var(--bs-primary, #cbd5e1) !important;
+
+            .o_kpi_arrow {
+                color: var(--body-color, var(--bs-body-color, #0f172a)) !important;
+                transform: translateX(3px);
+            }
+        }
+
+        .o_kpi_icon_wrapper {
+            width: 54px;
+            height: 54px;
+            min-width: 54px;
+            transition: transform 0.2s ease;
+        }
+
+        .o_kpi_value {
+            font-size: 1.85rem;
+            line-height: 1.2;
+            color: var(--body-color, var(--bs-body-color, #0f172a));
+        }
+
+        .o_kpi_title {
+            font-size: 0.925rem;
+            margin-top: 0.15rem;
+            color: var(--body-color, var(--bs-body-color, #334155));
+        }
+
+        .o_kpi_arrow {
+            transition: transform 0.2s ease, color 0.2s ease;
+            font-size: 1.1rem;
+            color: var(--text-muted, var(--bs-secondary-color, #94a3b8));
+        }
+
+        // --- Variantes Cromáticas Armoniosas ---
+        &.o_kpi_card_primary {
+            border-left: 4px solid #2563eb !important;
+            .o_kpi_icon_wrapper {
+                background-color: rgba(37, 99, 235, 0.12);
+                color: #2563eb;
+            }
+            .o_kpi_badge_primary {
+                background-color: rgba(37, 99, 235, 0.14);
+                color: #1d4ed8;
+            }
+        }
+
+        &.o_kpi_card_warning {
+            border-left: 4px solid #f59e0b !important;
+            .o_kpi_icon_wrapper {
+                background-color: rgba(245, 158, 11, 0.12);
+                color: #d97706;
+            }
+            .o_kpi_badge_warning {
+                background-color: rgba(245, 158, 11, 0.15);
+                color: #b45309;
+            }
+        }
+
+        &.o_kpi_card_danger {
+            border-left: 4px solid #ef4444 !important;
+            .o_kpi_icon_wrapper {
+                background-color: rgba(239, 68, 68, 0.12);
+                color: #dc2626;
+            }
+            .o_kpi_badge_danger {
+                background-color: rgba(239, 68, 68, 0.15);
+                color: #b91c1c;
+            }
+        }
+
+        &.o_kpi_card_success {
+            border-left: 4px solid #10b981 !important;
+            .o_kpi_icon_wrapper {
+                background-color: rgba(16, 185, 129, 0.12);
+                color: #059669;
+            }
+            .o_kpi_badge_success {
+                background-color: rgba(16, 185, 129, 0.15);
+                color: #047857;
+            }
+        }
+
+        &.o_kpi_card_info {
+            border-left: 4px solid #06b6d4 !important;
+            .o_kpi_icon_wrapper {
+                background-color: rgba(6, 182, 212, 0.12);
+                color: #0891b2;
+            }
+            .o_kpi_badge_info {
+                background-color: rgba(6, 182, 212, 0.15);
+                color: #0e7490;
+            }
+        }
+
+        &.o_kpi_card_secondary {
+            border-left: 4px solid #94a3b8 !important;
+            .o_kpi_icon_wrapper {
+                background-color: rgba(148, 163, 184, 0.12);
+                color: #64748b;
+            }
+            .o_kpi_badge_secondary {
+                background-color: rgba(148, 163, 184, 0.15);
+                color: #475569;
+            }
+        }
+    }
+}

@@ -4,8 +4,16 @@
         <record id="action_requisitions" model="ir.actions.act_window">
             <field name="name">Requisiciones</field>
             <field name="res_model">requisitions</field>
-            <field name="view_mode">list,form,kanban</field>
+            <field name="view_mode">list,kanban,pivot,graph,form</field>
             <field name="context">{'search_default_filter_open': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    Crear una nueva requisición de materiales, herramientas, equipos o servicios
+                </p>
+                <p>
+                    Las requisiciones gestionan solicitudes de insumos para obras y proyectos con control de aprobación y trazabilidad.
+                </p>
+            </field>
         </record>
 
         <record id="action_requisition_supply_request" model="ir.actions.act_window">
@@ -24,6 +32,14 @@
             <field name="res_model">requisition.purchase.request.line</field>
             <field name="view_mode">list,form</field>
             <field name="context">{'search_default_filter_pending_buy': 1}</field>
+            <field name="help" type="html">
+                <p class="o_view_nocontent_smiling_face">
+                    No hay solicitudes de compra pendientes
+                </p>
+                <p>
+                    Las partidas por adquirir se generan desde las requisiciones aprobadas para consolidación en cotizaciones (RFQ).
+                </p>
+            </field>
         </record>
     </data>
 </odoo>

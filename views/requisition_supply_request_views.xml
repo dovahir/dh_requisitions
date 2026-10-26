@@ -101,10 +101,12 @@
 
                 <sheet>
                     <div class="oe_button_box" name="button_box">
-                        <button type="object" name="action_view_outgoing" class="oe_stat_button" icon="fa-truck">
+                        <button type="object" name="action_view_outgoing" class="oe_stat_button" icon="fa-truck"
+                                invisible="outgoing_count == 0">
                             <field name="outgoing_count" widget="statinfo" string="Entregas"/>
                         </button>
-                        <button type="object" name="action_view_incoming" class="oe_stat_button" icon="fa-truck">
+                        <button type="object" name="action_view_incoming" class="oe_stat_button" icon="fa-truck"
+                                invisible="incoming_count == 0">
                             <field name="incoming_count" widget="statinfo" string="Recepciones"/>
                         </button>
                     </div>
@@ -291,6 +293,10 @@
         <field name="model">requisition.supply.request</field>
         <field name="arch" type="xml">
             <search>
+                <searchpanel>
+                    <field name="state" icon="fa-filter" enable_counters="1" select="multi"/>
+                    <field name="warehouse_dest_id" icon="fa-building" enable_counters="1"/>
+                </searchpanel>
                 <field name="name" string="Folio o Referencia" filter_domain="['|', ('name', 'ilike', self), ('notes', 'ilike', self)]"/>
                 <field name="warehouse_dest_id"/>
                 <field name="warehouse_origin_id"/>

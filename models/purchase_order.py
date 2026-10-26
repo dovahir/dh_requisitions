@@ -69,7 +69,7 @@ class PurchaseOrder(models.Model):
                 line._compute_quantities()
                 line._compute_state()
                 line.message_post(
-                    body=_("La orden de compra <strong>%s</strong> ha sido confirmada. Partida en espera de recepción en bodega.") % order.name,
+                    body=Markup(_("La orden de compra <strong>%s</strong> ha sido confirmada. Partida en espera de recepción en bodega.")) % escape(order.name),
                     subtype_xmlid="mail.mt_note"
                 )
         return res
@@ -92,7 +92,7 @@ class PurchaseOrder(models.Model):
                 line._compute_quantities()
                 line._compute_state()
                 line.message_post(
-                    body=_("La orden de compra <strong>%s</strong> fue cancelada. Cantidades recalculadas en la solicitud.") % order.name,
+                    body=Markup(_("La orden de compra <strong>%s</strong> fue cancelada. Cantidades recalculadas en la solicitud.")) % escape(order.name),
                     subtype_xmlid="mail.mt_note"
                 )
         return res
