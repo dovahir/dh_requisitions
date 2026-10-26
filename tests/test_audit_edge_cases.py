@@ -24,6 +24,7 @@ class TestAuditEdgeCases(common.TransactionCase):
             'code': 'WH_OBRA',
             'company_id': cls.company.id,
         })
+        cls.company.requisition_default_warehouse_origin_id = cls.base_warehouse.id
 
         cls.categ_material = cls.env['product.category'].create({
             'name': 'Materiales Test Audit',

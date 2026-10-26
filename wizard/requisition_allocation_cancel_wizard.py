@@ -34,6 +34,8 @@ class RequisitionAllocationCancelWizard(models.TransientModel):
 
     def action_confirm_cancel(self):
         self.ensure_one()
+        if not (self.env.user.has_group('dh_requisitions.group_requisitions_manager') or self.env.is_admin()):
+            raise UserError(_("Solo los Administradores de Requisiciones pueden cancelar o cerrar asignaciones del libro mayor."))
         if not self.allocation_ids:
             raise UserError(_("No hay asignaciones seleccionadas para cancelar."))
 

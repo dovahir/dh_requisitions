@@ -135,16 +135,16 @@
             <field name="domain_force">['|', '|', ('create_uid', '=', user.id), ('employee_id.user_id', '=', user.id), '&amp;', ('department_id', '!=', False), ('department_id', '=', user.employee_id.department_id.id)]</field>
         </record>
 
-        <!-- 1.2 Escritura y Eliminación: solo en estado borrador -->
+        <!-- 1.2 Escritura y Eliminación: en estado borrador o rechazada -->
         <record id="requisitions_requester_department_write_rule" model="ir.rule">
-            <field name="name">Requisiciones: Solicitante/Empleado/Departamento Borrador Edición</field>
+            <field name="name">Requisiciones: Solicitante/Empleado/Departamento Borrador/Rechazada Edición</field>
             <field name="model_id" ref="model_requisitions"/>
             <field name="groups" eval="[(4, ref('dh_requisitions.group_requisitions_requester'))]"/>
             <field name="perm_read" eval="0"/>
             <field name="perm_write" eval="1"/>
             <field name="perm_create" eval="1"/>
             <field name="perm_unlink" eval="1"/>
-            <field name="domain_force">['&amp;', ('state', '=', 'draft'), '|', '|', ('create_uid', '=', user.id), ('employee_id.user_id', '=', user.id), '&amp;', ('department_id', '!=', False), ('department_id', '=', user.employee_id.department_id.id)]</field>
+            <field name="domain_force">['&amp;', ('state', 'in', ('draft', 'rejected')), '|', '|', ('create_uid', '=', user.id), ('employee_id.user_id', '=', user.id), '&amp;', ('department_id', '!=', False), ('department_id', '=', user.employee_id.department_id.id)]</field>
         </record>
 
         <record id="requisitions_approver_manager_rule" model="ir.rule">

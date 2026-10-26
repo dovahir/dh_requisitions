@@ -247,12 +247,7 @@ class RequisitionSupplyRequestLine(models.Model):
             if not line.request_id:
                 if not line.warehouse_origin_id:
                     company = line.company_id or self.env.company
-                    base_wh = self.env['stock.warehouse'].search([
-                        ('company_id', '=', company.id),
-                        '|', ('code', 'ilike', '%base%'), ('name', 'ilike', '%base%')
-                    ], limit=1)
-                    if not base_wh:
-                        base_wh = self.env['stock.warehouse'].search([('company_id', '=', company.id)], limit=1) or self.env['stock.warehouse'].search([], limit=1)
+                    base_wh = company.requisition_default_warehouse_origin_id
                     line.warehouse_origin_id = base_wh.id if base_wh else False
                 else:
                     line.warehouse_origin_id = line.warehouse_origin_id
@@ -315,11 +310,11 @@ class RequisitionSupplyRequestLine(models.Model):
     @api.depends('request_id', 'request_id.state', 'allocation_ids.state', 'qty_done', 'product_qty')
     def _compute_state(self):
         for line in self:
-            if not line.request_id:
-                cancelled_alloc = line.allocation_ids and all(a.state == 'cancel' for a in line.allocation_ids)
-                line.state = 'cancel' if cancelled_alloc else 'pending_assignment'
-            elif line.request_id.state == 'cancel':
+            if line.allocation_ids and all(a.state == 'cancel' for a in line.allocation_ids):
                 line.state = 'cancel'
+            elif not line.request_id or line.request_id.state == 'cancel':
+                cancelled_alloc = line.allocation_ids and all(a.state == 'cancel' for a in line.allocation_ids)
+                line.state = 'cancel' if (cancelled_alloc or (line.request_id and line.request_id.state == 'cancel')) else 'pending_assignment'
             elif line.request_id.state in ('done_exact', 'done_partial', 'done_adjusted'):
                 line.state = 'done' if (line.product_qty > 0 and line.qty_done >= line.product_qty) else 'in_progress'
             elif line.request_id.state in ('in_transit', 'delivery_created'):

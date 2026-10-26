@@ -224,16 +224,19 @@ class Requisitions(models.Model):
     picking_ids = fields.Many2many(
         'stock.picking',
         compute='_compute_picking_ids',
+        compute_sudo=True,
         string='Albaranes de Entrega'
     )
     picking_count = fields.Integer(
         string='Entregas',
-        compute='_compute_picking_ids'
+        compute='_compute_picking_ids',
+        compute_sudo=True
     )
 
     purchase_order_ids = fields.Many2many(
         'purchase.order',
         compute='_compute_purchase_order_ids',
+        compute_sudo=True,
         string='Órdenes de Compra / RFQ'
     )
     allocation_ids = fields.One2many(
@@ -243,7 +246,8 @@ class Requisitions(models.Model):
     )
     purchase_order_count = fields.Integer(
         string='Compras / RFQ',
-        compute='_compute_purchase_order_ids'
+        compute='_compute_purchase_order_ids',
+        compute_sudo=True
     )
 
     @api.depends('purchase_request_line_ids')
@@ -254,7 +258,7 @@ class Requisitions(models.Model):
     @api.depends('line_ids.allocation_ids.stock_move_id.picking_id')
     def _compute_picking_ids(self):
         for rec in self:
-            pickings = rec.line_ids.allocation_ids.mapped('stock_move_id.picking_id')
+            pickings = rec.sudo().line_ids.allocation_ids.mapped('stock_move_id.picking_id')
             rec.picking_ids = pickings
             rec.picking_count = len(pickings)
 
@@ -265,8 +269,8 @@ class Requisitions(models.Model):
     def _compute_purchase_order_ids(self):
         for rec in self:
             orders = (
-                rec.line_ids.allocation_ids.mapped('purchase_line_id.order_id') |
-                rec.purchase_request_line_ids.mapped('purchase_line_id.order_id')
+                rec.sudo().line_ids.allocation_ids.mapped('purchase_line_id.order_id') |
+                rec.sudo().purchase_request_line_ids.mapped('purchase_line_id.order_id')
             )
             rec.purchase_order_ids = orders
             rec.purchase_order_count = len(orders)
@@ -314,29 +318,12 @@ class Requisitions(models.Model):
 
     @api.depends('warehouse_id', 'company_id', 'company_id.requisition_default_warehouse_origin_id')
     def _compute_is_not_base_warehouse(self):
-        missing_company_ids = {
-            rec.company_id.id for rec in self
-            if rec.company_id and not rec.company_id.requisition_default_warehouse_origin_id
-        }
-        fallback_base_wh_by_company = {}
-        if missing_company_ids:
-            base_warehouses = self.env['stock.warehouse'].search([
-                ('company_id', 'in', list(missing_company_ids)),
-                '|', ('code', '=', 'BASE'), ('name', 'ilike', 'base')
-            ])
-            for wh in base_warehouses:
-                if wh.company_id.id not in fallback_base_wh_by_company:
-                    fallback_base_wh_by_company[wh.company_id.id] = wh.id
-
         for rec in self:
             if not rec.warehouse_id:
                 rec.is_not_base_warehouse = False
                 continue
-            base_wh_id = (
-                rec.company_id.requisition_default_warehouse_origin_id.id
-                or fallback_base_wh_by_company.get(rec.company_id.id)
-            )
-            rec.is_not_base_warehouse = bool(base_wh_id and rec.warehouse_id.id != base_wh_id)
+            base_wh = rec.company_id.requisition_default_warehouse_origin_id
+            rec.is_not_base_warehouse = bool(base_wh and rec.warehouse_id.id != base_wh.id)
 
     @api.depends('supply_request_ids')
     def _compute_supply_request_count(self):
@@ -527,30 +514,28 @@ class Requisitions(models.Model):
     def action_done(self):
         self.write({'state': 'done'})
 
-    def action_cancel(self):
-        """Cancela directamente la requisición cuando se encuentra en estado Borrador."""
+    def action_cancel(self, reason=None):
+        """Cancela la requisición requiriendo justificación obligatoria. Si no se provee motivo, abre el asistente interactivo."""
+        reason = reason or self.env.context.get('cancel_reason')
+        if not reason:
+            return self.action_open_cancel_wizard()
         for rec in self:
-            if rec.state != 'draft':
-                raise UserError(_("Para cancelar una requisición autorizada, utilice la opción de cancelación con motivo."))
-            active_allocs = rec.line_ids.allocation_ids.filtered(lambda a: a.state in ('draft', 'in_progress'))
-            if active_allocs:
-                active_allocs.action_cancel_allocation(
-                    cancel_action='close',
-                    reason=_("Requisición cancelada desde borrador")
-                )
-            rec.write({
-                'state': 'cancel',
-                'cancelled_by_id': self.env.user.id,
-                'date_cancelled': fields.Datetime.now(),
+            wizard = self.env['requisition.cancel.wizard'].create({
+                'requisition_id': rec.id,
+                'reason': reason,
             })
+            wizard.action_confirm_cancel()
+        return True
 
     def action_open_cancel_wizard(self):
-        """Abre el asistente interactivo para solicitar el motivo de cancelación en requisiciones aprobadas o en proceso."""
+        """Abre el asistente interactivo para solicitar el motivo de cancelación en cualquier estado activo."""
         self.ensure_one()
-        if not self.env.user.has_group('dh_requisitions.group_requisitions_manager'):
-            raise UserError(_("Solo los Administradores de Requisiciones pueden cancelar requisiciones autorizadas o en proceso."))
-        if self.state not in ('approved', 'in_progress', 'partially_done'):
-            raise UserError(_("Solo se pueden cancelar requisiciones aprobadas o en proceso mediante este asistente."))
+        if not (self.env.user.has_group('dh_requisitions.group_requisitions_approver') or
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager') or
+                self.env.is_admin()):
+            raise UserError(_("Solo los Aprobadores / Líderes o Administradores de Requisiciones pueden cancelar requisiciones."))
+        if self.state in ('cancel', 'rejected', 'done'):
+            raise UserError(_("No se puede cancelar una requisición en estado %s.") % self.state)
         return {
             'name': _('Cancelar Requisición'),
             'type': 'ir.actions.act_window',
@@ -569,7 +554,14 @@ class Requisitions(models.Model):
                     "Debe cancelarla primero mediante la opción 'Cancelar' y, una vez cancelada, podrá regresarla a borrador."
                 ) % rec.name)
 
-            rec.write({
+            if rec.state == 'approved' and not (
+                self.env.user.has_group('dh_requisitions.group_requisitions_approver') or
+                self.env.user.has_group('dh_requisitions.group_requisitions_manager') or
+                self.env.is_admin()
+            ):
+                raise UserError(_("Solo los usuarios con rol Líder / Aprobador o Administrador pueden regresar a borrador una requisición autorizada."))
+
+            rec.sudo().write({
                 'state': 'draft',
                 'approved_by_id': False,
                 'date_approved': False,
@@ -582,7 +574,7 @@ class Requisitions(models.Model):
             # Si la requisición estaba cancelada, reactivar la cantidad reintegrando las asignaciones canceladas
             cancelled_allocs = rec.line_ids.allocation_ids.filtered(lambda a: a.state == 'cancel')
             if cancelled_allocs:
-                cancelled_allocs.write({
+                cancelled_allocs.sudo().write({
                     'cancel_action': 'reintegrate',
                     'cancelled_qty': 0.0,
                 })
@@ -595,15 +587,15 @@ class Requisitions(models.Model):
                 "<strong>Aviso:</strong> La requisición <strong>%s</strong> ha sido regresada a borrador para modificaciones."
             )) % escape(rec.name)
 
-            open_pickings = rec.picking_ids.filtered(lambda p: p.state not in ('done', 'cancel'))
+            open_pickings = rec.sudo().picking_ids.filtered(lambda p: p.state not in ('done', 'cancel'))
             for p in open_pickings:
                 p.message_post(body=msg_reopen, subtype_xmlid="mail.mt_note")
 
-            open_pos = rec.purchase_order_ids.filtered(lambda o: o.state in ('draft', 'sent', 'to approve'))
+            open_pos = rec.sudo().purchase_order_ids.filtered(lambda o: o.state in ('draft', 'sent', 'to approve'))
             for po in open_pos:
                 po.message_post(body=msg_reopen, subtype_xmlid="mail.mt_note")
 
-            sr_requests = rec.line_ids.allocation_ids.mapped('supply_request_line_id.request_id').filtered(
+            sr_requests = rec.sudo().line_ids.allocation_ids.mapped('supply_request_line_id.request_id').filtered(
                 lambda r: r.state not in ('done_exact', 'done_adjusted', 'cancel')
             )
             for sr in sr_requests:
@@ -763,11 +755,7 @@ class Requisitions(models.Model):
 
         created_lines = self.env['requisition.purchase.request.line']
 
-        base_wh = self.env['stock.warehouse'].search([
-            ('company_id', '=', self.company_id.id),
-            '|', ('code', '=', 'BASE'), ('name', 'ilike', 'base')
-        ], limit=1)
-
+        base_wh = self.company_id.requisition_default_warehouse_origin_id
         is_destination_obra = bool(base_wh and self.warehouse_id.id != base_wh.id)
 
         for item in lines_data:

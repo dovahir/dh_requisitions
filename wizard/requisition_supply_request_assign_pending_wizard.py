@@ -87,21 +87,20 @@ class RequisitionSupplyRequestAssignPendingWizard(models.TransientModel):
         company = valid_lines[0].company_id or self.env.company
         res['company_id'] = company.id
 
-        base_wh = self.env['stock.warehouse'].search([
+        base_wh = company.requisition_default_warehouse_origin_id
+        if not base_wh:
+            raise UserError(_("Debe configurar el Almacén Base Predeterminado en los Ajustes del módulo de Requisiciones antes de asignar partidas."))
+
+        res['warehouse_origin_id'] = base_wh.id
+        existing_sr = self.env['requisition.supply.request'].search([
             ('company_id', '=', company.id),
-            '|', ('code', '=', 'BASE'), ('name', 'ilike', 'base')
-        ], limit=1)
-        if base_wh:
-            res['warehouse_origin_id'] = base_wh.id
-            existing_sr = self.env['requisition.supply.request'].search([
-                ('company_id', '=', company.id),
-                ('warehouse_dest_id', '=', dest_wh.id),
-                ('warehouse_origin_id', '=', base_wh.id),
-                ('state', '=', 'draft'),
-                ('is_blocked', '=', False),
-            ], limit=1, order='id desc')
-            if existing_sr:
-                res['supply_request_id'] = existing_sr.id
+            ('warehouse_dest_id', '=', dest_wh.id),
+            ('warehouse_origin_id', '=', base_wh.id),
+            ('state', '=', 'draft'),
+            ('is_blocked', '=', False),
+        ], limit=1, order='id desc')
+        if existing_sr:
+            res['supply_request_id'] = existing_sr.id
 
         return res
 

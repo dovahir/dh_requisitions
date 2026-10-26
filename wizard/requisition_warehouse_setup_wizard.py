@@ -32,9 +32,7 @@ class RequisitionWarehouseSetupWizard(models.TransientModel):
         res = super().default_get(fields_list)
         if 'warehouse_origin_id' in fields_list and not res.get('warehouse_origin_id'):
             company = self.env.company
-            wh = company.requisition_default_warehouse_origin_id or self.env['stock.warehouse'].search([
-                ('company_id', '=', company.id)
-            ], limit=1)
+            wh = company.requisition_default_warehouse_origin_id
             if wh:
                 res['warehouse_origin_id'] = wh.id
         return res

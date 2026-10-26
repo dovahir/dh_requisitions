@@ -110,7 +110,7 @@ class RequisitionSupplyRequest(models.Model):
 
     def _default_warehouse_origin_id(self):
         company = self.env.company
-        return company.requisition_default_warehouse_origin_id or self.env['stock.warehouse'].search([('company_id', '=', company.id)], limit=1)
+        return company.requisition_default_warehouse_origin_id
 
     def _default_picking_type_id(self):
         wh = self._default_warehouse_origin_id()
@@ -696,6 +696,8 @@ class RequisitionSupplyRequest(models.Model):
     def _process_picking_cancel(self, picking):
         """Maneja la cancelación de transferencias vinculadas a la solicitud."""
         self.ensure_one()
+        if self.state == 'cancel':
+            return
         if picking._is_return_picking():
             picking.message_post(
                 body=Markup(_(
@@ -719,6 +721,8 @@ class RequisitionSupplyRequest(models.Model):
         evaluando entregas, recepciones, devoluciones y cancelaciones de manera vectorizada.
         """
         for req in self:
+            if req.state == 'cancel':
+                continue
             pickings = req.picking_ids
 
             if req.has_cancelled_backorder:

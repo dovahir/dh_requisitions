@@ -18,6 +18,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
                 'code': 'WH_LEDGER',
                 'company_id': cls.company.id,
             })
+        cls.company.requisition_default_warehouse_origin_id = cls.warehouse.id
 
         cls.partner = cls.env['res.partner'].create({
             'name': 'Proveedor Ledger Test',

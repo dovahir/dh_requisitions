@@ -48,8 +48,6 @@
                     <button name="action_reject_wizard" string="Rechazar" type="object"
                             class="btn btn-secondary" invisible="state != 'to_approve'"
                             groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
-                    <button name="action_cancel" string="Cancelar" type="object"
-                            invisible="state != 'draft'"/>
                     <button name="action_draft" string="Volver a Borrador" type="object"
                             invisible="state not in ('cancel', 'rejected', 'to_approve')"
                             groups="dh_requisitions.group_requisitions_requester,dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
@@ -74,7 +72,8 @@
                             invisible="state != 'approved'"
                             groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_open_cancel_wizard" string="Cancelar" type="object"
-                            invisible="state not in ('approved', 'in_progress', 'partially_done')"/>
+                            invisible="state in ('cancel', 'rejected', 'done')"
+                            groups="dh_requisitions.group_requisitions_approver,dh_requisitions.group_requisitions_manager"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,approved,in_progress,done"/>
                 </header>

@@ -494,13 +494,12 @@ class RequisitionPurchaseRequestLine(models.Model):
         if self.product_id.type == 'service':
             raise UserError(_("Las partidas de servicios no aplican para traslados físicos de suministro."))
 
-        base_wh = self.env['stock.warehouse'].search([
-            ('company_id', '=', self.company_id.id),
-            '|', ('code', '=', 'BASE'), ('name', 'ilike', 'base')
-        ], limit=1)
+        base_wh = self.company_id.requisition_default_warehouse_origin_id
+        if not base_wh:
+            raise UserError(_("Debe configurar el Almacén Base Predeterminado en los Ajustes del módulo de Requisiciones."))
 
-        if not base_wh or self.warehouse_id == base_wh:
-            raise UserError(_("Esta solicitud ya tiene como destino el almacén Base o no se encontró un almacén Base configurado."))
+        if self.warehouse_id == base_wh:
+            raise UserError(_("Esta solicitud ya tiene como destino el Almacén Base configurado."))
 
         existing_sr_line = self.env['requisition.supply.request.line'].search([
             ('requisition_line_id', '=', self.requisition_line_id.id if self.requisition_line_id else False),

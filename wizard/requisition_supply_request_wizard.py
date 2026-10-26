@@ -66,24 +66,23 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
 
         res['requisition_id'] = requisition.id
 
-        # Localizar almacén BASE central de la compañía
-        base_wh = self.env['stock.warehouse'].search([
-            ('company_id', '=', requisition.company_id.id),
-            '|', ('code', '=', 'BASE'), ('name', 'ilike', 'base')
-        ], limit=1)
-        if base_wh:
-            res['warehouse_origin_id'] = base_wh.id
+        # Obtener almacén base predeterminado de la compañía configurado en Ajustes
+        base_wh = requisition.company_id.requisition_default_warehouse_origin_id
+        if not base_wh:
+            raise UserError(_("Debe configurar el Almacén Base Predeterminado en los Ajustes del módulo de Requisiciones antes de crear solicitudes de suministro."))
 
-            # Buscar si ya existe una SR activa en borrador y no bloqueada para esta ruta
-            existing_sr = self.env['requisition.supply.request'].search([
-                ('company_id', '=', requisition.company_id.id),
-                ('warehouse_dest_id', '=', requisition.warehouse_id.id),
-                ('warehouse_origin_id', '=', base_wh.id),
-                ('state', '=', 'draft'),
-                ('is_blocked', '=', False),
-            ], limit=1, order='id desc')
-            if existing_sr:
-                res['supply_request_id'] = existing_sr.id
+        res['warehouse_origin_id'] = base_wh.id
+
+        # Buscar si ya existe una SR activa en borrador y no bloqueada para esta ruta
+        existing_sr = self.env['requisition.supply.request'].search([
+            ('company_id', '=', requisition.company_id.id),
+            ('warehouse_dest_id', '=', requisition.warehouse_id.id),
+            ('warehouse_origin_id', '=', base_wh.id),
+            ('state', '=', 'draft'),
+            ('is_blocked', '=', False),
+        ], limit=1, order='id desc')
+        if existing_sr:
+            res['supply_request_id'] = existing_sr.id
 
         # Precargar partidas físicas con cantidad pendiente de suministrar
         lines_data = []
@@ -99,6 +98,19 @@ class RequisitionSupplyRequestWizard(models.TransientModel):
             }))
         res['line_ids'] = lines_data
         return res
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            if not vals.get('warehouse_origin_id') and vals.get('supply_request_id'):
+                sr = self.env['requisition.supply.request'].browse(vals['supply_request_id'])
+                if sr.exists() and sr.warehouse_origin_id:
+                    vals['warehouse_origin_id'] = sr.warehouse_origin_id.id
+            elif not vals.get('warehouse_origin_id') and vals.get('requisition_id'):
+                req = self.env['requisitions'].browse(vals['requisition_id'])
+                if req.exists() and req.company_id.requisition_default_warehouse_origin_id:
+                    vals['warehouse_origin_id'] = req.company_id.requisition_default_warehouse_origin_id.id
+        return super().create(vals_list)
 
     def action_confirm(self):
         """Agrega las partidas seleccionadas a la Solicitud de Suministro activa y emite notificación informativa."""

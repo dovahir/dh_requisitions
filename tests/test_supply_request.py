@@ -16,6 +16,7 @@ class TestSupplyRequest(common.TransactionCase):
                 'code': 'WH_BASE',
                 'company_id': cls.company.id,
             })
+        cls.company.requisition_default_warehouse_origin_id = cls.wh_origin.id
 
         cls.product = cls.env['product.product'].create({
             'name': 'Pintura Blanca 19L Test',

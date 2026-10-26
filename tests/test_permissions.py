@@ -38,6 +38,7 @@ class TestRequisitionsPermissions(common.TransactionCase):
             'code': 'WH_OBRA',
             'company_id': cls.company.id,
         })
+        cls.company.requisition_default_warehouse_origin_id = cls.warehouse_base.id
 
         # Categoría y Producto
         cls.categ_material = cls.env['product.category'].create({
@@ -119,6 +120,15 @@ class TestRequisitionsPermissions(common.TransactionCase):
             'company_id': cls.company.id,
             'company_ids': [(6, 0, [cls.company.id])],
             'group_ids': [(6, 0, [cls.env.ref('base.group_user').id, cls.group_purchase_manager.id])],
+        })
+
+        # 7. Administrador de Requisiciones
+        cls.user_manager = cls.env['res.users'].create({
+            'name': 'Administrador Requisiciones Test',
+            'login': 'manager_req_test@example.com',
+            'company_id': cls.company.id,
+            'company_ids': [(6, 0, [cls.company.id])],
+            'group_ids': [(6, 0, [cls.env.ref('base.group_user').id, cls.group_manager.id])],
         })
 
     def test_01_user_visibility_post_draft(self):
@@ -363,3 +373,145 @@ class TestRequisitionsPermissions(common.TransactionCase):
             self.group_manager.implied_ids.ids,
             "El Administrador no debe implicar almacén base para no podar la UI de Odoo 19."
         )
+
+    def test_09_requester_can_return_rejected_to_draft_and_resubmit(self):
+        """Valida que un solicitante pueda regresar a borrador su requisición rechazada sin AccessError y re-enviarla."""
+        req = self.env['requisitions'].with_user(self.user_requester).create({
+            'employee_id': self.employee_requester.id,
+            'warehouse_id': self.warehouse_base.id,
+            'user_id': self.user_aprobador.id,
+            'line_ids': [(0, 0, {
+                'product_id': self.product.id,
+                'product_qty': 5.0,
+                'line_type': 'material',
+            })],
+        })
+        req.action_confirm()
+        self.assertEqual(req.state, 'to_approve')
+
+        # Líder rechaza la requisición con motivo
+        wizard = self.env['requisition.reject.wizard'].with_user(self.user_aprobador).create({
+            'requisition_id': req.id,
+            'reason': 'Cantidad excesiva para el inventario actual',
+        })
+        wizard.action_confirm_reject()
+        self.assertEqual(req.state, 'rejected')
+        self.assertEqual(req.rejected_by_id, self.user_aprobador)
+
+        # El Solicitante DEBE poder regresar a borrador sin AccessError de ir.rule
+        req.with_user(self.user_requester).action_draft()
+        self.assertEqual(req.state, 'draft')
+        self.assertFalse(req.rejected_by_id)
+
+        # En estado borrador puede ajustar la partida y volver a solicitar aprobación
+        req.line_ids[0].with_user(self.user_requester).write({'product_qty': 3.0})
+        self.assertEqual(req.line_ids[0].product_qty, 3.0)
+        req.with_user(self.user_requester).action_confirm()
+        self.assertEqual(req.state, 'to_approve')
+
+    def test_10_cancel_wizard_permissions(self):
+        """Valida que la cancelación interactiva con justificación esté disponible para Líder/Aprobador y Administrador, y bloqueada para Solicitante."""
+        req = self.env['requisitions'].with_user(self.user_requester).create({
+            'employee_id': self.employee_requester.id,
+            'warehouse_id': self.warehouse_base.id,
+            'user_id': self.user_aprobador.id,
+            'line_ids': [(0, 0, {
+                'product_id': self.product.id,
+                'product_qty': 4.0,
+                'line_type': 'material',
+            })],
+        })
+        # 1. En borrador, el Solicitante no puede abrir el wizard de cancelación
+        with self.assertRaises(UserError):
+            req.with_user(self.user_requester).action_open_cancel_wizard()
+
+        # 2. En borrador, el Aprobador SÍ puede abrir el wizard de cancelación
+        res_draft = req.with_user(self.user_aprobador).action_open_cancel_wizard()
+        self.assertEqual(res_draft.get('res_model'), 'requisition.cancel.wizard')
+
+        req.action_confirm()
+        req.with_user(self.user_aprobador).action_approve()
+        self.assertEqual(req.state, 'approved')
+
+        # 3. Solicitante no puede cancelar requisición aprobada
+        with self.assertRaises(UserError):
+            req.with_user(self.user_requester).action_open_cancel_wizard()
+
+        # 4. Aprobador (Líder) SÍ puede abrir el asistente de cancelación
+        res_aprobador = req.with_user(self.user_aprobador).action_open_cancel_wizard()
+        self.assertEqual(res_aprobador.get('res_model'), 'requisition.cancel.wizard')
+
+        # 5. Administrador de requisiciones SÍ puede
+        res = req.with_user(self.user_manager).action_open_cancel_wizard()
+        self.assertEqual(res.get('res_model'), 'requisition.cancel.wizard')
+
+        # 6. Ejecutar cancelación interactiva por el Aprobador
+        wiz = self.env['requisition.cancel.wizard'].with_user(self.user_aprobador).create({
+            'requisition_id': req.id,
+            'reason': 'Cancelado por cambio de prioridades en obra',
+        })
+        wiz.action_confirm_cancel()
+        self.assertEqual(req.state, 'cancel')
+        self.assertEqual(req.line_ids.line_state, 'cancel')
+
+    def test_11_allocation_cancel_wizard_permissions(self):
+        """Valida que solo Administradores de Requisiciones puedan confirmar la cancelación de asignaciones en el libro mayor."""
+        req = self.env['requisitions'].create({
+            'employee_id': self.employee_requester.id,
+            'warehouse_id': self.warehouse_base.id,
+            'user_id': self.user_aprobador.id,
+            'line_ids': [(0, 0, {
+                'product_id': self.product.id,
+                'product_qty': 10.0,
+                'line_type': 'material',
+            })],
+        })
+        req.action_confirm()
+        req.with_user(self.user_aprobador).action_approve()
+
+        alloc = self.env['requisition.allocation'].create({
+            'company_id': self.company.id,
+            'requisition_line_id': req.line_ids[0].id,
+            'product_id': self.product.id,
+            'product_uom_id': self.product.uom_id.id,
+            'requested_qty': 10.0,
+            'delivered_qty': 0.0,
+            'stage': 'inbound',
+            'state': 'in_progress',
+        })
+
+        # Usuario solicitante no puede crear wizard de cancelación de asignación (bloqueado por ACLs)
+        with self.assertRaises(AccessError):
+            self.env['requisition.allocation.cancel.wizard'].with_user(self.user_requester).create({
+                'allocation_ids': [(6, 0, [alloc.id])],
+                'cancel_action': 'close',
+                'reason': 'Intento no autorizado por usuario',
+            })
+
+        # Usuario Almacén Base tampoco puede crear wizard de cancelación de asignación
+        with self.assertRaises(AccessError):
+            self.env['requisition.allocation.cancel.wizard'].with_user(self.user_base).create({
+                'allocation_ids': [(6, 0, [alloc.id])],
+                'cancel_action': 'close',
+                'reason': 'Intento por almacén base',
+            })
+
+        # Validación en action_confirm_cancel si un usuario sin rol manager intentara ejecutar la acción
+        wiz_sudo = self.env['requisition.allocation.cancel.wizard'].create({
+            'allocation_ids': [(6, 0, [alloc.id])],
+            'cancel_action': 'close',
+            'reason': 'Test confirm',
+        })
+        with self.assertRaises(UserError):
+            wiz_sudo.with_user(self.user_requester).action_confirm_cancel()
+
+        # Administrador de Requisiciones SÍ puede confirmar la cancelación
+        wiz_manager = self.env['requisition.allocation.cancel.wizard'].with_user(self.user_manager).create({
+            'allocation_ids': [(6, 0, [alloc.id])],
+            'cancel_action': 'close',
+            'reason': 'Cancelación autorizada por Gerencia',
+        })
+        wiz_manager.action_confirm_cancel()
+        self.assertEqual(alloc.state, 'cancel')
+        self.assertEqual(alloc.cancelled_qty, 10.0)
+

@@ -17,6 +17,7 @@ class TestPurchaseRequest(common.TransactionCase):
                 'code': 'WH_PR_TEST',
                 'company_id': cls.company.id,
             })
+        cls.company.requisition_default_warehouse_origin_id = cls.warehouse.id
 
         cls.partner_supplier = cls.env['res.partner'].create({
             'name': 'Proveedor Ferretero SA de CV',

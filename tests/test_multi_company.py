@@ -30,6 +30,7 @@ class TestRequisitionMultiCompany(common.TransactionCase):
                 'code': 'WH_A_TEST',
                 'company_id': cls.company_a.id,
             })
+        cls.company_a.requisition_default_warehouse_origin_id = cls.wh_a.id
 
     def test_01_multi_company_isolation(self):
         """Valida que un usuario de la compañía B no pueda acceder a las requisiciones de la compañía A."""

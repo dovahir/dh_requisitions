@@ -19,6 +19,7 @@ Características principales:
 - Gestión de partidas pendientes de envío a obra, división de cantidades y sugerencia de compra por desabasto en base.
 - Matriz de trazabilidad y asignación de suministro con control de entregas, devoluciones y cancelación de cantidad.
 - Asistente interactivo de solicitud de compra con selección granular de partidas y priorización simplificada.
+- Cancelación unificada con motivo justificado obligatorio en todos los estados y afectación integral en cascada.
     """,
     "author": "Aldahir",
     "maintainer": "Aldahir",

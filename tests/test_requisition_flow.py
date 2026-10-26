@@ -16,6 +16,7 @@ class TestRequisitionFlow(common.TransactionCase):
                 'code': 'WH_TEST',
                 'company_id': cls.company.id,
             })
+        cls.company.requisition_default_warehouse_origin_id = cls.warehouse.id
 
         cls.categ_material = cls.env['product.category'].create({
             'name': 'Materiales Test',
