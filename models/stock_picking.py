@@ -116,6 +116,8 @@ class StockPicking(models.Model):
     def action_cancel(self):
         """Notifica la cancelación del albarán a la Solicitud de Suministro."""
         res = super().action_cancel()
+        if isinstance(res, dict):
+            return res
         for picking in self:
             if picking.supply_request_id and picking.state == 'cancel':
                 picking.supply_request_id._process_picking_cancel(picking)

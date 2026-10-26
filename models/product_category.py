@@ -4,7 +4,7 @@ from odoo.exceptions import UserError
 
 
 class ProductCategory(models.Model):
-    _inherit = ['product.category', 'supply.chain.category.cascading.mixin']
+    _inherit = 'product.category'
 
     requisition_type = fields.Selection(
         [
@@ -92,3 +92,30 @@ class ProductCategory(models.Model):
             )
 
         return res
+
+    def _cascade_field_to_descendants(self, field_name, new_val, skip_context_key, update_product_template=False):
+        """
+        Propaga el valor del campo a todas las subcategorías descendientes sin afectar ancestros.
+        Opcionalmente actualiza plantillas de producto vinculadas si el campo existe en product.template.
+        """
+        if not self:
+            return
+
+        descendants = self.search([
+            ('id', 'child_of', self.ids),
+            ('id', 'not in', self.ids),
+            (field_name, '!=', new_val),
+        ])
+        if descendants:
+            descendants.with_context(**{skip_context_key: True}).write({
+                field_name: new_val
+            })
+
+        if update_product_template and hasattr(self.env['product.template'], field_name):
+            all_affected_categ_ids = self.ids + descendants.ids
+            products = self.env['product.template'].search([
+                ('categ_id', 'in', all_affected_categ_ids),
+                (field_name, '!=', new_val),
+            ])
+            if products:
+                products.write({field_name: new_val})

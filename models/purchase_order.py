@@ -76,12 +76,15 @@ class PurchaseOrder(models.Model):
 
     def button_cancel(self):
         res = super().button_cancel()
+        if isinstance(res, dict):
+            return res
         for order in self:
             active_allocs = order.order_line.allocation_ids.filtered(lambda a: a.state != 'cancel')
             if active_allocs:
+                reason = self.env.context.get('cancel_reason') or (_("Orden de compra %s cancelada") % order.name)
                 active_allocs.action_cancel_allocation(
                     cancel_action='reintegrate',
-                    reason=_("Orden de compra %s cancelada") % order.name
+                    reason=reason
                 )
 
             req_lines = order.purchase_request_line_ids

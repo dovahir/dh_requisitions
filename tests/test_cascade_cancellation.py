@@ -276,3 +276,19 @@ class TestCascadeCancellationAndWarehouseConfig(TransactionCase):
 
         # 6. Albarán y movimientos cancelados
         self.assertEqual(picking.state, 'cancel')
+
+        # 7. Verificación de Auditoría Estricta en Requisición y documentos vinculados
+        self.assertEqual(req.cancel_reason, 'Cancelación general de obra por orden ejecutiva')
+        self.assertEqual(req.cancelled_by_id, self.user_lider)
+        self.assertTrue(bool(req.date_cancelled))
+
+        if 'cancel_reason' in picking._fields:
+            self.assertEqual(picking.cancel_reason, 'Cancelación general de obra por orden ejecutiva')
+            self.assertEqual(picking.cancelled_by_id, self.user_lider)
+            self.assertTrue(bool(picking.date_cancelled))
+
+        if 'cancel_reason' in po._fields:
+            self.assertEqual(po.cancel_reason, 'Cancelación general de obra por orden ejecutiva')
+            self.assertEqual(po.cancelled_by_id, self.user_lider)
+            self.assertTrue(bool(po.date_cancelled))
+

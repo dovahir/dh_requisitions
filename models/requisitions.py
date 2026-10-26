@@ -7,7 +7,7 @@ from markupsafe import Markup, escape
 class Requisitions(models.Model):
     _name = 'requisitions'
     _description = 'Requisición de Empleado'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'supply.chain.cancel.audit.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin']
     _order = 'id desc'
 
     name = fields.Char(
@@ -172,6 +172,12 @@ class Requisitions(models.Model):
         readonly=True,
         copy=False,
         tracking=True
+    )
+    cancel_reason = fields.Text(
+        string="Motivo de Cancelación",
+        readonly=True,
+        copy=False,
+        help="Justificación operativa registrada al cancelar la requisición."
     )
     date_start_tracking = fields.Datetime(
         string="Inicio de Seguimiento",

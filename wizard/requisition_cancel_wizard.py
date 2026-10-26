@@ -55,8 +55,20 @@ class RequisitionCancelWizard(models.TransientModel):
             ('requisition_line_id', 'in', req.line_ids.ids)
         ]).mapped('picking_id').filtered(lambda p: p.state not in ('done', 'cancel'))
         all_pickings = open_pickings | supply_pickings | move_pickings
+        # 1. Cancelar albaranes de almacén abiertos vinculados y propagar auditoría
+        audit_vals = {
+            'cancelled_by_id': self.env.user.id,
+            'date_cancelled': fields.Datetime.now(),
+            'cancel_reason': reason_text,
+        }
         for picking in all_pickings.sudo():
-            picking.with_context(mail_notrack=True).action_cancel()
+            picking.with_context(
+                mail_notrack=True,
+                cancel_reason=reason_text,
+                cancelled_by_id=self.env.user.id
+            ).action_cancel()
+            if 'cancel_reason' in picking._fields:
+                picking.write(audit_vals)
             picking.message_post(
                 body=Markup(_("<strong>Albarán cancelado por cancelación de la Requisición %s</strong><br/><strong>Motivo:</strong> %s")) % (
                     escape(req.name),
@@ -139,8 +151,13 @@ class RequisitionCancelWizard(models.TransientModel):
                 )
                 other_active_lines = po.order_line - lines_to_cancel
                 if not other_active_lines:
-                    # Toda la orden pertenecía a esta requisición: cancelar orden completa
-                    po.sudo().button_cancel()
+                    # Toda la orden pertenecía a esta requisición: cancelar orden completa con auditoría
+                    po.sudo().with_context(
+                        cancel_reason=reason_text,
+                        cancelled_by_id=self.env.user.id
+                    ).button_cancel()
+                    if 'cancel_reason' in po._fields:
+                        po.sudo().write(audit_vals)
                     po.message_post(
                         body=Markup(_("<strong>Orden de Compra / RFQ cancelada por cancelación de la Requisición %s</strong><br/><strong>Motivo:</strong> %s")) % (
                             escape(req.name),
@@ -183,6 +200,7 @@ class RequisitionCancelWizard(models.TransientModel):
             'state': 'cancel',
             'cancelled_by_id': self.env.user.id,
             'date_cancelled': fields.Datetime.now(),
+            'cancel_reason': reason_text,
         })
 
         req.message_post(

@@ -139,6 +139,7 @@
                             <field name="approved_by_id" invisible="not approved_by_id" options="{'no_open': True}"/>
                             <field name="rejected_by_id" invisible="not rejected_by_id" options="{'no_open': True}"/>
                             <field name="cancelled_by_id" invisible="not cancelled_by_id" options="{'no_open': True}"/>
+                            <field name="cancel_reason" invisible="not cancelled_by_id and not cancel_reason"/>
                         </group>
                         <group>
                             <field name="date_created" string="Fecha de Creación"/>
