@@ -133,7 +133,12 @@ class RequisitionCancelWizard(models.TransientModel):
             try:
                 pr_line.sudo().action_cancel_line(cancel_action='close', reason=reason_text)
             except Exception:
-                pr_line.sudo().write({'state': 'cancel'})
+                pr_line.sudo().write({
+                    'state': 'cancel',
+                    'cancel_reason': reason_text,
+                    'cancelled_by_id': self.env.user.id,
+                    'date_cancelled': fields.Datetime.now(),
+                })
 
         # 4. Afectar Órdenes de Compra / RFQ vinculadas
         purchase_orders = (

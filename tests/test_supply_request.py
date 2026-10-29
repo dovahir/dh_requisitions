@@ -214,13 +214,20 @@ class TestSupplyRequest(common.TransactionCase):
             'product_qty': 8.0,
             'warehouse_dest_id': self.wh_origin.id,
         })
-        line.action_create_purchase_request_line()
-        # Verificar que se creó requisition.purchase.request.line
+        action = line.action_create_purchase_request_line()
+        wizard = self.env[action['res_model']].with_context(action['context']).create({
+            'qty_to_purchase': 8.0,
+            'qty_to_send': 0.0,
+            'create_pending_supply': True,
+        })
+        wizard.action_confirm()
+        # Verificar que se creó requisition.purchase.request.line vinculada
         prl = self.env['requisition.purchase.request.line'].search([
             ('product_id', '=', self.product.id),
         ])
         self.assertTrue(prl)
         self.assertIn(line.product_qty, prl.mapped('product_qty'))
+        self.assertEqual(prl.origin_supply_request_line_id, line)
 
     def test_08_delivery_wizard_warning(self):
         """Valida que el wizard de despacho advierta falta de stock sin bloquear la generación del albarán."""

@@ -268,7 +268,7 @@ class TestRequisitionsPermissions(common.TransactionCase):
         self.assertEqual(res_pr.get('res_model'), 'requisition.purchase.request.add.to.rfq.wizard')
 
         # 6. Administrador de Compras SÍ puede cancelar la partida
-        pr_line.with_user(self.user_compras_mgr).action_cancel_line(cancel_action='close')
+        pr_line.with_user(self.user_compras_mgr).action_cancel_line(cancel_action='close', reason='Cancelación por prueba de permisos')
         self.assertEqual(pr_line.state, 'cancel')
 
         # 7. Administrador de Compras puede eliminar partidas en estado pendiente

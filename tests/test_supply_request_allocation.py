@@ -124,10 +124,10 @@ class TestSupplyRequestAllocation(common.TransactionCase):
         self.assertEqual(sr_line.product_qty, 6.0)
         self.assertTrue(bool(sr_line.allocation_ids))
 
-        # Verificar reserva preventiva: qty_allocated_stock = 6.0, qty_pending = 4.0
+        # Verificar asignación: qty_allocated_stock = 6.0, qty_pending = 10.0 (inmune a solicitudes de suministro)
         req_line._compute_quantities()
         self.assertEqual(req_line.qty_allocated_stock, 6.0)
-        self.assertEqual(req_line.qty_pending, 4.0)
+        self.assertEqual(req_line.qty_pending, 10.0)
         self.assertEqual(req_line.qty_done, 0.0)
 
     def test_02_two_leg_lifecycle_and_physical_reception(self):
@@ -247,15 +247,32 @@ class TestSupplyRequestAllocation(common.TransactionCase):
                 'product_qty': 5.0,
             })]
         })
-        # 1. Emisión desde Solicitud
+        # Sin entrega validada, debe bloquearse
+        with self.assertRaises(UserError):
+            supply_req.action_print_transfer_report()
+
+        # Crear entrega y asegurar stock en base
+        self.env['stock.quant']._update_available_quantity(
+            self.product, self.wh_base.lot_stock_id, 10.0
+        )
+        supply_req.action_create_delivery()
+        out_picking = supply_req.picking_ids[0]
+
+        # En picking sin validar también debe bloquearse
+        with self.assertRaises(UserError):
+            out_picking.action_print_transfer_report()
+
+        for move in out_picking.move_ids:
+            move.quantity = 5.0
+        out_picking.with_context(skip_backorder=True).button_validate()
+
+        # 1. Emisión desde Solicitud validada
         action_from_req = supply_req.action_print_transfer_report()
         report_data = action_from_req if action_from_req.get('type') == 'ir.actions.report' else action_from_req.get('context', {}).get('report_action', {})
         self.assertIn(action_from_req.get('type'), ('ir.actions.report', 'ir.actions.act_window'))
         self.assertEqual(report_data.get('report_name'), 'dh_requisitions.report_supply_transfer_document')
 
-        # 2. Emisión desde Picking
-        supply_req.action_create_delivery()
-        out_picking = supply_req.picking_ids[0]
+        # 2. Emisión desde Picking validado
         action_from_pick = out_picking.action_print_transfer_report()
         report_data_pick = action_from_pick if action_from_pick.get('type') == 'ir.actions.report' else action_from_pick.get('context', {}).get('report_action', {})
         self.assertIn(action_from_pick.get('type'), ('ir.actions.report', 'ir.actions.act_window'))
@@ -301,7 +318,7 @@ class TestSupplyRequestAllocation(common.TransactionCase):
         self.assertEqual(alloc.requested_qty, 9.0)
         req_line._compute_quantities()
         self.assertEqual(req_line.qty_allocated_stock, 9.0)
-        self.assertEqual(req_line.qty_pending, 6.0)
+        self.assertEqual(req_line.qty_pending, 15.0)
 
         # Eliminar línea en borrador: libera la asignación y restaura cantidad en la requisición
         sr_line.unlink()

@@ -12,4 +12,6 @@ from . import requisition_supply_request_add_pending_wizard
 from . import requisition_supply_request_assign_pending_wizard
 from . import requisition_allocation_cancel_wizard
 from . import requisition_purchase_request_wizard
+from . import requisition_supply_trigger_purchase_wizard
+from . import requisition_purchase_request_cancel_wizard
 

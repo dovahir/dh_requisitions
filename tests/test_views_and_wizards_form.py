@@ -154,3 +154,41 @@ class TestViewsAndWizardsForm(common.TransactionCase):
         wizard = wizard_form.save()
         self.assertEqual(wizard.line_ids[0].request_line_id, pr_line)
         self.assertEqual(wizard.supplier_id, self.supplier)
+
+    def test_05_supply_trigger_purchase_wizard_form(self):
+        """Valida el asistente interactivo para disparar compra desde partida de suministro usando Form."""
+        supply_line = self.env['requisition.supply.request.line'].create({
+            'product_id': self.product.id,
+            'product_qty': 25.0,
+            'warehouse_dest_id': self.warehouse.id,
+        })
+        ctx = {
+            'default_supply_line_id': supply_line.id,
+            'default_qty_to_send': 5.0,
+            'default_qty_to_purchase': 20.0,
+        }
+        form = Form(self.env['requisition.supply.trigger.purchase.wizard'].with_context(ctx))
+        form.qty_to_purchase = 18.0
+        form.notes = 'Compra vía Form'
+        wizard = form.save()
+        self.assertEqual(wizard.qty_to_purchase, 18.0)
+        self.assertEqual(wizard.supply_line_id, supply_line)
+
+    def test_06_purchase_request_cancel_wizard_form(self):
+        """Valida el asistente interactivo de cancelación de partida de compra usando Form."""
+        pr_line = self.env['requisition.purchase.request.line'].create({
+            'product_id': self.product.id,
+            'product_qty': 10.0,
+            'product_uom_id': self.product.uom_id.id,
+            'warehouse_id': self.warehouse.id,
+            'state': 'pending',
+        })
+        ctx = {
+            'default_purchase_request_line_ids': [pr_line.id],
+        }
+        form = Form(self.env['requisition.purchase.request.cancel.wizard'].with_context(ctx))
+        form.reason = 'Cancelado vía Form test'
+        wizard = form.save()
+        self.assertEqual(wizard.reason, 'Cancelado vía Form test')
+        self.assertIn(pr_line, wizard.purchase_request_line_ids)
+

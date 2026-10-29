@@ -92,6 +92,15 @@ class RequisitionSupplyRequestLine(models.Model):
         default=1.0,
         digits='Product Unit of Measure'
     )
+    qty_to_send = fields.Float(
+        string='Cantidad a Enviar',
+        digits='Product Unit of Measure',
+        compute='_compute_qty_to_send',
+        store=True,
+        readonly=False,
+        precompute=True,
+        help="Cantidad específica a despachar en el albarán de entrega desde el almacén base."
+    )
     request_qty = fields.Float(
         string='Demanda en Requisición',
         related='requisition_line_id.product_qty',
@@ -144,7 +153,12 @@ class RequisitionSupplyRequestLine(models.Model):
         compute='_compute_dotation_display'
     )
 
-    # --- Integración con requisition.allocation ---
+    # --- Integración con requisition.allocation y movimientos ---
+    move_ids = fields.One2many(
+        'stock.move',
+        'supply_request_line_id',
+        string='Movimientos de Stock'
+    )
     allocation_ids = fields.One2many(
         'requisition.allocation',
         'supply_request_line_id',
@@ -292,20 +306,46 @@ class RequisitionSupplyRequestLine(models.Model):
             line.is_in_purchase = is_active
             line.purchase_process_label = _("En proceso de compra") if is_active else False
 
+    @api.depends('product_qty')
+    def _compute_qty_to_send(self):
+        for line in self:
+            if not line.qty_to_send:
+                line.qty_to_send = line.product_qty
+
     @api.depends(
-        'allocation_ids.requested_qty',
         'allocation_ids.delivered_qty',
-        'allocation_ids.open_qty',
         'allocation_ids.cancelled_qty',
         'allocation_ids.state',
+        'move_ids.state',
+        'move_ids.quantity',
+        'move_ids.location_id',
+        'move_ids.location_dest_id',
+        'request_id.location_id',
+        'request_id.location_dest_id',
         'request_id.state'
     )
     def _compute_quantities(self):
         for line in self:
             active_allocs = line.allocation_ids.filtered(lambda a: a.state != 'cancel')
             line.qty_done = sum(active_allocs.mapped('delivered_qty'))
-            line.qty_in_transit = sum(active_allocs.filtered(lambda a: a.state in ('draft', 'in_progress')).mapped('open_qty'))
             line.qty_cancelled = sum(line.allocation_ids.filtered(lambda a: a.state == 'cancel').mapped('cancelled_qty'))
+
+            # Cantidad en tránsito: despachada de base (move.state == 'done') que aún no ha ingresado a destino
+            out_moves = line.move_ids.filtered(
+                lambda m: m.state == 'done' and line.request_id and m.location_id.id == line.request_id.location_id.id
+            )
+            in_moves = line.move_ids.filtered(
+                lambda m: m.state == 'done' and line.request_id and m.location_dest_id.id == line.request_id.location_dest_id.id
+            )
+            shipped_qty = sum(
+                m.product_uom._compute_quantity(m.quantity, line.product_uom_id) if m.product_uom and line.product_uom_id and m.product_uom != line.product_uom_id else m.quantity
+                for m in out_moves
+            )
+            received_qty = sum(
+                m.product_uom._compute_quantity(m.quantity, line.product_uom_id) if m.product_uom and line.product_uom_id and m.product_uom != line.product_uom_id else m.quantity
+                for m in in_moves
+            )
+            line.qty_in_transit = max(0.0, shipped_qty - received_qty)
 
     @api.depends('request_id', 'request_id.state', 'allocation_ids.state', 'qty_done', 'product_qty')
     def _compute_state(self):
@@ -332,6 +372,19 @@ class RequisitionSupplyRequestLine(models.Model):
         for line in self:
             if line.product_qty <= 0:
                 raise ValidationError(_("La cantidad solicitada en la partida de suministro debe ser mayor a cero."))
+
+    @api.constrains('qty_to_send', 'product_qty')
+    def _check_qty_to_send(self):
+        for line in self:
+            if line.qty_to_send < 0:
+                raise ValidationError(_("La cantidad a enviar no puede ser negativa."))
+            if line.qty_to_send > line.product_qty:
+                raise ValidationError(_(
+                    "La cantidad a enviar (%(send)s) no puede ser mayor que la cantidad solicitada (%(req)s) para el producto '%(prod)s'.",
+                    send=line.qty_to_send,
+                    req=line.product_qty,
+                    prod=line.product_id.display_name
+                ))
 
     @api.constrains('lot_ids', 'product_qty')
     def _check_lots_quantity(self):
@@ -551,6 +604,11 @@ class RequisitionSupplyRequestLine(models.Model):
                     'notes': rec.notes,
                 }
 
+        if 'product_qty' in vals and 'qty_to_send' not in vals:
+            for rec in self:
+                if rec.qty_to_send > vals['product_qty']:
+                    rec.qty_to_send = vals['product_qty']
+
         res = super().write(vals)
 
         if 'product_qty' in vals:
@@ -679,7 +737,7 @@ class RequisitionSupplyRequestLine(models.Model):
         }
 
     def action_create_purchase_request_line(self):
-        """Genera una línea en Solicitud de Compra a partir de esta partida de suministro sin stock suficiente en Base."""
+        """Abre el asistente interactivo para configurar y solicitar la compra a partir de esta partida."""
         self.ensure_one()
         # Verificar permisos: Administrador, Base o Compras
         if not (self.env.user.has_group('dh_requisitions.group_stock_request_employee') or
@@ -696,64 +754,16 @@ class RequisitionSupplyRequestLine(models.Model):
         if existing_pr:
             raise UserError(_("Ya existe una Solicitud de Compra activa (%s) para este requerimiento.") % existing_pr.display_name)
 
-        qty_to_buy = max(0.0, self.product_qty - self.qty_base_available) or self.product_qty
-
-        pr_vals = {
-            'requisition_id': self.requisition_id.id if self.requisition_id else False,
-            'requisition_line_id': self.requisition_line_id.id if self.requisition_line_id else False,
-            'product_id': self.product_id.id,
-            'product_qty': qty_to_buy,
-            'notes': _("Disparado automáticamente desde Suministro por falta de stock en Base. %s") % (self.notes or ''),
-            'state': 'pending',
-        }
-        pr_line = self.env['requisition.purchase.request.line'].create(pr_vals)
-
-        # Vincular con allocation
-        if self.allocation_id:
-            self.allocation_id.write({
-                'purchase_request_line_id': pr_line.id,
-                'stage': 'inbound',
-                'state': 'in_progress',
-            })
-            pr_line.allocation_id = self.allocation_id.id
-        elif self.requisition_line_id:
-            supply_type = self.requisition_line_id.supply_type or (
-                'resg' if self.requisition_line_id.line_type in ('tool', 'equipment') else 'consumption'
-            )
-            company = self.company_id or self.env.company
-            alloc = self.env['requisition.allocation'].create({
-                'company_id': company.id,
-                'product_id': self.product_id.id,
-                'product_uom_id': self.product_uom_id.id,
-                'requested_qty': self.product_qty,
-                'delivered_qty': 0.0,
-                'supply_type': supply_type,
-                'stage': 'inbound',
-                'supply_request_line_id': self.id,
-                'purchase_request_line_id': pr_line.id,
-                'requisition_line_id': self.requisition_line_id.id,
-                'state': 'draft',
-            })
-            pr_line.allocation_id = alloc.id
-
-        if self.request_id:
-            self.request_id.message_post(
-                body=Markup(_(
-                    "Se disparó la Solicitud de Compra <strong>%s</strong> para el producto '%s' (Cantidad: %s %s) "
-                    "por falta de existencias en el Almacén Base."
-                )) % (
-                    escape(pr_line.display_name),
-                    escape(self.product_id.display_name),
-                    qty_to_buy,
-                    escape(self.product_uom_id.name or '')
-                ),
-                subtype_xmlid="mail.mt_note"
-            )
-
+        deficit = max(0.0, self.product_qty - self.qty_base_available) or self.product_qty
         return {
-            'name': _('Solicitud de Compra'),
             'type': 'ir.actions.act_window',
-            'res_model': 'requisition.purchase.request.line',
+            'name': _('Solicitar Compra desde Suministro'),
+            'res_model': 'requisition.supply.trigger.purchase.wizard',
             'view_mode': 'form',
-            'res_id': pr_line.id,
+            'target': 'new',
+            'context': {
+                'default_supply_line_id': self.id,
+                'default_qty_to_send': self.qty_to_send,
+                'default_qty_to_purchase': deficit,
+            },
         }

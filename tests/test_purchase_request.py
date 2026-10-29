@@ -231,8 +231,14 @@ class TestPurchaseRequest(common.TransactionCase):
         pr_line = self.env['requisition.purchase.request.line'].search([('requisition_id', '=', req.id)], limit=1)
         self.assertEqual(pr_line.state, 'pending')
 
-        # Cancelar directamente
-        pr_line.action_cancel_line(cancel_action='reintegrate')
+        # Cancelar usando el wizard con motivo obligatorio
+        wizard = self.env['requisition.purchase.request.cancel.wizard'].create({
+            'purchase_request_line_ids': [(6, 0, [pr_line.id])],
+            'reason': 'Prueba de motivo de cancelación',
+            'cancel_action': 'reintegrate',
+        })
+        wizard.action_confirm()
         self.assertEqual(pr_line.state, 'cancel')
+        self.assertEqual(pr_line.cancel_reason, 'Prueba de motivo de cancelación')
         self.assertEqual(pr_line.qty_cancelled, 12.0)
         self.assertEqual(pr_line.pending_qty_to_buy, 0.0)

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-    <!-- Acción de Cliente: Tablero de Requisiciones -->
-    <record id="action_requisitions_dashboard" model="ir.actions.client">
-        <field name="name">Tablero</field>
-        <field name="tag">dh_requisitions_dashboard</field>
-        <field name="target">current</field>
-    </record>
-</odoo>

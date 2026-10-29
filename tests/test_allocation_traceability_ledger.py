@@ -197,7 +197,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         self.assertEqual(inbound_alloc.stage, 'inbound')
         self.assertEqual(line.qty_allocated_purchase, 10.0)
         self.assertEqual(line.qty_done, 0.0)
-        self.assertEqual(line.qty_pending, 0.0)
+        self.assertEqual(line.qty_pending, 10.0)
 
         # Simular recepción en almacén de la compra
         inbound_alloc.delivered_qty = 10.0
@@ -271,10 +271,10 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
             'warehouse_origin_id': self.warehouse.id,
         })
 
-        # Al crearse la línea de suministro, la requisición tiene asignado almacén y qty_pending = 0
+        # Al crearse la línea de suministro, la requisición tiene asignado almacén y qty_pending = 10.0
         line._compute_quantities()
         self.assertEqual(line.qty_allocated_stock, 10.0)
-        self.assertEqual(line.qty_pending, 0.0)
+        self.assertEqual(line.qty_pending, 10.0)
         self.assertEqual(len(line.allocation_ids), 1)
         alloc = line.allocation_ids[0]
         self.assertEqual(alloc.supply_request_line_id, sr_line)
@@ -311,7 +311,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         line._compute_quantities()
         self.assertEqual(line.qty_allocated_stock, 10.0)
         self.assertEqual(line.qty_allocated_purchase, 10.0)
-        self.assertEqual(line.qty_pending, 0.0)
+        self.assertEqual(line.qty_pending, 10.0)
         self.assertEqual(line.qty_done, 0.0)
 
     def test_purchase_request_then_supply_request_unified_allocation(self):
@@ -464,10 +464,10 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         self.assertEqual(alloc.state, 'in_progress')
         self.assertEqual(alloc.open_qty, 4.0)
 
-    def test_partial_custody_return(self):
-        """6. Devolución cuantitativa y estados de resguardo (in_custody, partially_returned, returned)."""
+    def test_partial_resguardo_return(self):
+        """6. Devolución cuantitativa y estados de resguardo (in_resguardo, partially_returned, returned)."""
         categ_tool = self.env['product.category'].create({
-            'name': 'Herramientas Custody Test',
+            'name': 'Herramientas Resguardo Test',
             'requisition_type': 'tool',
             'allow_requisition': True,
         })
@@ -507,12 +507,12 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
             'state': 'done',
         })
         line._compute_quantities()
-        line._compute_custody_quantities()
+        line._compute_resguardo_quantities()
 
         self.assertEqual(line.qty_done, 3.0)
-        self.assertEqual(line.qty_in_custody, 3.0)
+        self.assertEqual(line.qty_in_resguardo, 3.0)
         self.assertEqual(line.qty_returned, 0.0)
-        self.assertEqual(line.custody_state, 'in_custody')
+        self.assertEqual(line.resguardo_state, 'in_resguardo')
 
         # Devolución parcial de 1 unidad
         mock_return_move = self.env['stock.move'].create({
@@ -525,11 +525,11 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
             'company_id': self.company.id,
         })
         alloc._on_move_returned(mock_return_move, 1.0)
-        line._compute_custody_quantities()
+        line._compute_resguardo_quantities()
 
         self.assertEqual(line.qty_returned, 1.0)
-        self.assertEqual(line.qty_in_custody, 2.0)
-        self.assertEqual(line.custody_state, 'partially_returned')
+        self.assertEqual(line.qty_in_resguardo, 2.0)
+        self.assertEqual(line.resguardo_state, 'partially_returned')
 
         # Devolución de las 2 unidades restantes
         mock_return_move2 = self.env['stock.move'].create({
@@ -542,11 +542,11 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
             'company_id': self.company.id,
         })
         alloc._on_move_returned(mock_return_move2, 2.0)
-        line._compute_custody_quantities()
+        line._compute_resguardo_quantities()
 
         self.assertEqual(line.qty_returned, 3.0)
-        self.assertEqual(line.qty_in_custody, 0.0)
-        self.assertEqual(line.custody_state, 'returned')
+        self.assertEqual(line.qty_in_resguardo, 0.0)
+        self.assertEqual(line.resguardo_state, 'returned')
 
     def test_write_product_qty_with_prior_deliveries(self):
         """7. Modificar product_qty tras entregas previas ajusta únicamente la cantidad neta no surtida sin sobreasignar."""
@@ -598,7 +598,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
         self.assertEqual(line.product_qty, 8.0)
         self.assertEqual(line.qty_done, 4.0)
         self.assertEqual(line.qty_allocated_stock, 4.0)
-        self.assertEqual(line.qty_pending, 0.0)
+        self.assertEqual(line.qty_pending, 4.0)
 
     def test_service_po_confirmation_completes_allocation(self):
         """8. Confirmar orden de compra de servicios concluye la asignación y actualiza qty_done en requisición."""
@@ -685,7 +685,7 @@ class TestAllocationTraceabilityLedger(common.TransactionCase):
             'state': 'in_progress',
         })
         line._compute_quantities()
-        self.assertEqual(line.qty_pending, 0.0)
+        self.assertEqual(line.qty_pending, 10.0)
 
         # Cancelar con política 'close'
         wiz = self.env['requisition.allocation.cancel.wizard'].create({

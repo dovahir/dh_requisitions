@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_requisition_purchase_request_cancel_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.purchase.request.cancel.wizard.form</field>
+        <field name="model">requisition.purchase.request.cancel.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Cancelar Partidas de Solicitud de Compra">
+                <sheet>
+                    <div class="alert alert-warning py-2" role="alert">
+                        <i class="fa fa-exclamation-triangle me-1"/>
+                        Indique el motivo obligatorio de cancelación. Si existen solicitudes de cotización (RFQs) o líneas de compra asociadas en borrador, serán canceladas o retiradas automáticamente.
+                    </div>
+                    <group>
+                        <field name="cancel_action" widget="radio"/>
+                        <field name="reason" placeholder="Especifique el motivo detallado de cancelación / justificación obligatoria..." required="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Partidas a Cancelar" name="affected_lines">
+                            <field name="purchase_request_line_ids" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="requisition_id"/>
+                                    <field name="product_id"/>
+                                    <field name="product_qty" string="Cantidad"/>
+                                    <field name="product_uom_id" string="UdM"/>
+                                    <field name="pending_qty_to_buy" string="Pendiente Comprar"/>
+                                    <field name="state" widget="badge"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" string="Confirmar Cancelación" type="object" class="btn-danger" icon="fa-times"/>
+                    <button string="Descartar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_requisition_purchase_request_cancel_wizard" model="ir.actions.act_window">
+        <field name="name">Cancelar Solicitudes de Compra</field>
+        <field name="res_model">requisition.purchase.request.cancel.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="dh_requisitions.model_requisition_purchase_request_line"/>
+        <field name="binding_view_types">list</field>
+    </record>
+</odoo>

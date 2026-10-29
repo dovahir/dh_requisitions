@@ -49,7 +49,6 @@ class RequisitionsLine(models.Model):
         [
             ('consumption', 'Consumo Directo'),
             ('resg', 'Resguardo'),
-            ('custody', 'Préstamo / Resguardo'),
         ],
         string="Tipo de Suministro",
         compute='_compute_supply_type',
@@ -57,27 +56,27 @@ class RequisitionsLine(models.Model):
         readonly=False
     )
 
-    custody_state = fields.Selection(
+    resguardo_state = fields.Selection(
         [
             ('none', 'N/A'),
-            ('in_custody', 'En Resguardo / Préstamo'),
+            ('in_resguardo', 'En Resguardo'),
             ('partially_returned', 'Parcialmente Devuelto'),
             ('returned', 'Devuelto / Resguardo Concluido'),
         ],
         string="Estado de Resguardo",
-        compute='_compute_custody_quantities',
+        compute='_compute_resguardo_quantities',
         store=True,
         default='none'
     )
-    qty_in_custody = fields.Float(
+    qty_in_resguardo = fields.Float(
         string="En Resguardo",
-        compute='_compute_custody_quantities',
+        compute='_compute_resguardo_quantities',
         store=True,
         digits='Product Unit of Measure'
     )
     qty_returned = fields.Float(
         string="Devuelto",
-        compute='_compute_custody_quantities',
+        compute='_compute_resguardo_quantities',
         store=True,
         digits='Product Unit of Measure'
     )
@@ -245,16 +244,16 @@ class RequisitionsLine(models.Model):
     def _get_qty_unsupplied(self):
         """
         Retorna la cantidad neta de la línea que aún no ha sido asignada a una
-        partida de Solicitud de Suministro o entrega directa activa.
+        partida de Solicitud de Suministro (traslado Base -> Obra) activa.
         """
         self.ensure_one()
         if self.line_state in ('done', 'cancel') or self.product_qty <= 0 or self.line_type == 'service':
             return 0.0
         supplied_allocs = self.allocation_ids.filtered(
-            lambda a: (bool(a.supply_request_line_id) or bool(a.stock_move_id)) and a.state != 'cancel'
+            lambda a: bool(a.supply_request_line_id) and a.state != 'cancel'
         )
         supplied_qty = sum(supplied_allocs.mapped('requested_qty'))
-        return max(0.0, self.product_qty - self.qty_cancelled - self.qty_done - supplied_qty)
+        return max(0.0, self.product_qty - self.qty_cancelled - supplied_qty)
 
     @api.depends(
         'allocation_ids.requested_qty',
@@ -277,7 +276,7 @@ class RequisitionsLine(models.Model):
                 lambda a: bool(a.purchase_line_id) or bool(a.purchase_request_line_id)
             )
             stock_allocs = line.allocation_ids.filtered(
-                lambda a: bool(a.stock_move_id) or bool(a.supply_request_line_id) or (not a.purchase_line_id and not a.purchase_request_line_id)
+                lambda a: bool(a.stock_move_id) or (bool(a.supply_request_line_id) and bool(a.supply_request_line_id.request_id)) or (not a.purchase_line_id and not a.purchase_request_line_id)
             )
 
             # 1. Cantidad Suministrada (Física al solicitante u obra destino):
@@ -310,30 +309,28 @@ class RequisitionsLine(models.Model):
                     line.allocation_ids.filtered(lambda a: a.cancel_action == 'close').mapped('cancelled_qty')
                 )
                 line.qty_cancelled = closed_allocs_qty
-                # Calcular cantidad en tránsito unificada para evitar doble cómputo si una asignación tiene suministro y compra
-                active_allocs = line.allocation_ids.filtered(lambda a: a.state in ('draft', 'in_progress'))
-                total_in_flight = sum(active_allocs.mapped('open_qty'))
-                line.qty_pending = max(0.0, line.product_qty - line.qty_done - total_in_flight - line.qty_cancelled)
+                # El campo pendiente solo debe reflejar lo pendiente de dar salida física real (Entregar productos)
+                line.qty_pending = max(0.0, line.product_qty - line.qty_done - line.qty_cancelled)
 
     @api.depends('allocation_ids.qty_returned', 'allocation_ids.delivered_qty', 'supply_type', 'qty_done')
-    def _compute_custody_quantities(self):
+    def _compute_resguardo_quantities(self):
         for line in self:
-            if line.supply_type not in ('resg', 'custody'):
+            if line.supply_type != 'resg':
                 line.qty_returned = 0.0
-                line.qty_in_custody = 0.0
-                line.custody_state = 'none'
+                line.qty_in_resguardo = 0.0
+                line.resguardo_state = 'none'
             else:
                 outbound_allocs = line.allocation_ids.filtered(lambda a: a.stage == 'outbound')
                 line.qty_returned = sum(outbound_allocs.mapped('qty_returned'))
-                line.qty_in_custody = max(0.0, line.qty_done - line.qty_returned)
+                line.qty_in_resguardo = max(0.0, line.qty_done - line.qty_returned)
                 if line.qty_done <= 0:
-                    line.custody_state = 'none'
-                elif line.qty_in_custody <= 0 and line.qty_returned >= line.qty_done:
-                    line.custody_state = 'returned'
-                elif line.qty_returned > 0 and line.qty_in_custody > 0:
-                    line.custody_state = 'partially_returned'
+                    line.resguardo_state = 'none'
+                elif line.qty_in_resguardo <= 0 and line.qty_returned >= line.qty_done:
+                    line.resguardo_state = 'returned'
+                elif line.qty_returned > 0 and line.qty_in_resguardo > 0:
+                    line.resguardo_state = 'partially_returned'
                 else:
-                    line.custody_state = 'in_custody'
+                    line.resguardo_state = 'in_resguardo'
 
     @api.depends(
         'requisition_id.state',
@@ -361,26 +358,28 @@ class RequisitionsLine(models.Model):
                     line.line_state = 'cancel'
             elif line.qty_done > 0:
                 line.line_state = 'partially_done'
-            elif line.qty_pending <= 0:
-                has_stock = line.qty_allocated_stock > 0
-                has_purchase = line.qty_allocated_purchase > 0
-                if has_stock and has_purchase:
-                    line.line_state = 'in_mixed'
-                elif has_purchase:
-                    line.line_state = 'in_purchase'
-                else:
-                    line.line_state = 'in_stock'
-            elif (line.qty_allocated_stock + line.qty_allocated_purchase) > 0:
-                has_stock = line.qty_allocated_stock > 0
-                has_purchase = line.qty_allocated_purchase > 0
-                if has_stock and has_purchase:
-                    line.line_state = 'partial_mixed'
-                elif has_purchase:
-                    line.line_state = 'partial_purchase'
-                else:
-                    line.line_state = 'partial_stock'
             else:
-                line.line_state = 'pending'
+                active_allocs = line.allocation_ids.filtered(lambda a: a.state in ('draft', 'in_progress'))
+                allocated_total = sum(active_allocs.mapped('open_qty'))
+                net_demand = max(0.0, line.product_qty - line.qty_cancelled)
+                has_stock = line.qty_allocated_stock > 0
+                has_purchase = line.qty_allocated_purchase > 0
+                if allocated_total >= net_demand and net_demand > 0:
+                    if has_stock and has_purchase:
+                        line.line_state = 'in_mixed'
+                    elif has_purchase:
+                        line.line_state = 'in_purchase'
+                    else:
+                        line.line_state = 'in_stock'
+                elif allocated_total > 0:
+                    if has_stock and has_purchase:
+                        line.line_state = 'partial_mixed'
+                    elif has_purchase:
+                        line.line_state = 'partial_purchase'
+                    else:
+                        line.line_state = 'partial_stock'
+                else:
+                    line.line_state = 'pending'
 
     # --- Restricciones de Modificación y Eliminación Backend/API ---
     @api.model_create_multi

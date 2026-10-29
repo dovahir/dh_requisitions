@@ -85,14 +85,14 @@
                             type="object"
                             class="btn-secondary"
                             icon="fa-print"
-                            invisible="not id"/>
+                            invisible="not id or not has_validated_delivery"/>
 
                     <button name="action_open_add_pending_wizard"
                             string="Agregar Pendientes"
                             type="object"
                             class="btn-secondary"
                             icon="fa-plus-circle"
-                            invisible="state != 'draft' or is_blocked"
+                            invisible="state != 'draft' or is_blocked or not has_pending_lines_for_destination"
                             groups="dh_requisitions.group_stock_request_employee,dh_requisitions.group_requisitions_manager"/>
 
                     <field name="state" widget="statusbar"
@@ -187,19 +187,22 @@
                     <group col="3">
                         <group string="Información">
                             <field name="company_id" invisible="1"/>
+                            <field name="configured_warehouse_dest_ids" invisible="1"/>
+                            <field name="has_validated_delivery" invisible="1"/>
+                            <field name="has_pending_lines_for_destination" invisible="1"/>
                             <field name="request_uid" widget="many2one_avatar_user"/>
                             <field name="date_request"/>
                             <field name="scheduled_date" readonly="state != 'draft'"/>
                             <field name="requisition_ids" invisible="1"/>
                         </group>
                         <group string="Origen (Base)">
-                            <field name="picking_type_id" options="{'no_create': True}" readonly="state != 'draft'"/>
+                            <field name="picking_type_id" invisible="1"/>
                             <field name="warehouse_origin_id" options="{'no_create': True, 'no_open': True}" readonly="1" force_save="1"/>
                             <field name="location_id" options="{'no_create': True, 'no_open': True}" readonly="1" force_save="1"/>
                         </group>
                         <group string="Destino (Obra)">
-                            <field name="picking_type_dest_id" options="{'no_create': True}" readonly="state != 'draft'"/>
-                            <field name="warehouse_dest_id" options="{'no_create': True, 'no_open': True}" readonly="1" force_save="1"/>
+                            <field name="picking_type_dest_id" invisible="1"/>
+                            <field name="warehouse_dest_id" options="{'no_create': True}" readonly="state != 'draft'" domain="[('id', 'in', configured_warehouse_dest_ids)]"/>
                             <field name="location_dest_id" options="{'no_create': True, 'no_open': True}" readonly="1" force_save="1"/>
                         </group>
                     </group>
@@ -222,8 +225,9 @@
                                 <list editable="bottom">
                                     <field name="requisition_id" widget="many2one" optional="show"/>
                                     <field name="product_id" options="{'no_create': True}" readonly="requisition_line_id"/>
-                                    <field name="request_qty" optional="show" readonly="1"/>
+                                    <field name="request_qty" optional="hide" readonly="1"/>
                                     <field name="product_qty" decoration-bf="1"/>
+                                    <field name="qty_to_send" decoration-bf="1"/>
                                     <field name="qty_in_transit" optional="show" readonly="1" decoration-info="qty_in_transit &gt; 0"/>
                                     <field name="qty_done" optional="show" readonly="1" decoration-success="qty_done &gt; 0"/>
                                     <field name="product_uom_id" string="UdM" options="{'no_create': True}" readonly="1" force_save="1"/>
@@ -236,17 +240,17 @@
                                            optional="show"/>
                                     <field name="requester_name" optional="show" readonly="1"/>
                                     <field name="is_in_purchase" column_invisible="1"/>
-                                    <field name="purchase_request_line_id" string="Línea de Compra" optional="show"/>
+                                    <field name="purchase_request_line_id" string="Línea de Compra" optional="hide"/>
                                     <field name="purchase_process_label" string="Proceso de Compra"
                                            widget="badge" decoration-warning="is_in_purchase"
-                                           invisible="not is_in_purchase" optional="show"/>
+                                           invisible="not is_in_purchase" optional="hide"/>
                                     <field name="purchase_request_line_state" string="Estado de Compra"
                                            widget="badge"
                                            decoration-info="purchase_request_line_state in ('pending', 'in_progress')"
                                            decoration-warning="purchase_request_line_state == 'to_receive'"
                                            decoration-success="purchase_request_line_state in ('partially_purchased', 'purchased')"
                                            decoration-muted="purchase_request_line_state == 'cancel'"
-                                           invisible="not is_in_purchase" optional="show"/>
+                                           invisible="not is_in_purchase" optional="hide"/>
                                     <field name="requisition_deadline" optional="show"/>
                                     <field name="qty_base_available" string="Stock Base" optional="show"
                                            decoration-danger="suggest_purchase" decoration-success="not suggest_purchase"/>

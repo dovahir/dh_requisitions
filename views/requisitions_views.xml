@@ -204,10 +204,10 @@
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
                                     <field name="product_uom_id" options="{'no_create': True, 'no_open': True}"/>
                                     <field name="note"/>
-                                    <field name="custody_state" widget="badge" optional="show"
-                                           decoration-info="custody_state == 'in_custody'"
-                                           decoration-success="custody_state == 'returned'"
-                                           decoration-muted="custody_state == 'none'"/>
+                                    <field name="resguardo_state" widget="badge" optional="show"
+                                           decoration-info="resguardo_state == 'in_resguardo'"
+                                           decoration-success="resguardo_state == 'returned'"
+                                           decoration-muted="resguardo_state == 'none'"/>
                                     <field name="line_state" widget="badge" optional="show"
                                             decoration-info="line_state in ('draft', 'pending')"
                                             decoration-warning="line_state in ('partial_stock', 'partial_purchase', 'partial_mixed', 'partially_done')"
@@ -236,10 +236,10 @@
                                     <field name="qty_pending" readonly="1" optional="show"/>
                                     <field name="qty_cancelled" readonly="1" optional="hide"/>
                                     <field name="product_uom_id" options="{'no_create': True, 'no_open': True}"/>
-                                    <field name="custody_state" widget="badge" optional="show"
-                                           decoration-info="custody_state == 'in_custody'"
-                                           decoration-success="custody_state == 'returned'"
-                                           decoration-muted="custody_state == 'none'"/>
+                                    <field name="resguardo_state" widget="badge" optional="show"
+                                           decoration-info="resguardo_state == 'in_resguardo'"
+                                           decoration-success="resguardo_state == 'returned'"
+                                           decoration-muted="resguardo_state == 'none'"/>
                                     <field name="line_state" widget="badge" optional="show"
                                             decoration-info="line_state in ('draft', 'pending')"
                                             decoration-warning="line_state in ('partial_stock', 'partial_purchase', 'partial_mixed', 'partially_done')"

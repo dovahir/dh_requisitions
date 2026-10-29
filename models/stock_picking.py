@@ -86,6 +86,8 @@ class StockPicking(models.Model):
     def action_print_transfer_report(self):
         """Genera e imprime el reporte de traspaso / remisión desde el albarán."""
         self.ensure_one()
+        if self.state != 'done':
+            raise UserError(_("No se puede imprimir el reporte de traslado hasta que el albarán esté validado."))
         return self.env.ref('dh_requisitions.action_report_supply_transfer').report_action(self)
 
     def _prepare_backorder_values(self, picking):

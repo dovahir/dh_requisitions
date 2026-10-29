@@ -261,10 +261,11 @@ class Requisitions(models.Model):
         for rec in self:
             rec.purchase_request_count = len(rec.purchase_request_line_ids)
 
-    @api.depends('line_ids.allocation_ids.stock_move_id.picking_id')
+    @api.depends('line_ids.allocation_ids.stage', 'line_ids.allocation_ids.stock_move_id.picking_id')
     def _compute_picking_ids(self):
         for rec in self:
-            pickings = rec.sudo().line_ids.allocation_ids.mapped('stock_move_id.picking_id')
+            outbound_allocs = rec.sudo().line_ids.allocation_ids.filtered(lambda a: a.stage == 'outbound')
+            pickings = outbound_allocs.mapped('stock_move_id.picking_id')
             rec.picking_ids = pickings
             rec.picking_count = len(pickings)
 

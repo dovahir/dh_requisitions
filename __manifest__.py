@@ -20,6 +20,7 @@ Características principales:
 - Matriz de trazabilidad y asignación de suministro con control de entregas, devoluciones y cancelación de cantidad.
 - Asistente interactivo de solicitud de compra con selección granular de partidas y priorización simplificada.
 - Cancelación unificada con motivo justificado obligatorio en todos los estados y afectación integral en cascada.
+- Asistente para solicitar compras directas ante desabasto en solicitudes de suministro y cancelación individual de partidas de compra.
     """,
     "author": "Aldahir",
     "maintainer": "Aldahir",
@@ -53,22 +54,13 @@ Características principales:
         "wizard/requisition_supply_request_assign_pending_wizard_views.xml",
         "wizard/requisition_purchase_request_add_to_rfq_wizard_views.xml",
         "wizard/requisition_allocation_cancel_wizard_views.xml",
+        "wizard/requisition_supply_trigger_purchase_wizard_views.xml",
+        "wizard/requisition_purchase_request_cancel_wizard_views.xml",
         "views/requisition_allocation_views.xml",
-        "views/requisition_dashboard_views.xml",
         "views/menus.xml",
         "report/paper_format.xml",
         "report/requisition_supply_transfer_report.xml",
     ],
-
-    "assets": {
-        "web.assets_backend": [
-            "dh_requisitions/static/src/dashboard/**/*",
-            ("remove", "dh_requisitions/static/src/dashboard/**/*.dark.scss"),
-        ],
-        "web.assets_web_dark": [
-            "dh_requisitions/static/src/dashboard/**/*.dark.scss",
-        ],
-    },
     "license": "LGPL-3",
     "installable": True,
     "auto_install": False,

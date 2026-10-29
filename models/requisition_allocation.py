@@ -157,7 +157,6 @@ class RequisitionAllocation(models.Model):
         [
             ('consumption', 'Consumo Directo'),
             ('resg', 'Resguardo'),
-            ('custody', 'Préstamo / Resguardo'),
         ],
         string='Tipo de Suministro',
         default='consumption',
@@ -289,7 +288,7 @@ class RequisitionAllocation(models.Model):
             if rec.requisition_id:
                 doc_name = ''
                 if rec.stock_move_id:
-                    doc_name = _("Albarán de Salida %s") % (rec.stock_move_id.reference or rec.stock_move_id.name)
+                    doc_name = _("Albarán de Salida %s") % (rec.stock_move_id.reference or getattr(rec.stock_move_id, 'name', '') or rec.stock_move_id.display_name)
                 elif rec.purchase_line_id:
                     doc_name = _("Orden de Compra %s") % rec.purchase_line_id.order_id.name
 
@@ -397,7 +396,7 @@ class RequisitionAllocation(models.Model):
                         )) % (alloc_qty, escape(rec.product_uom_id.name or ''), escape(rec.product_id.display_name)),
                         subtype_xmlid="mail.mt_note"
                     )
-            elif rec.supply_type in ('custody', 'resg'):
+            elif rec.supply_type == 'resg':
                 if rec.requisition_id:
                     rec.requisition_id.message_post(
                         body=Markup(_(
@@ -430,7 +429,7 @@ class RequisitionAllocation(models.Model):
                         alloc_qty,
                         escape(rec.product_uom_id.name or ''),
                         escape(rec.product_id.display_name),
-                        escape(move.reference or move.name or ''),
+                        escape(move.reference or getattr(move, 'name', '') or move.display_name or ''),
                         rec.delivered_qty,
                         rec.requested_qty
                     ),
@@ -477,7 +476,7 @@ class RequisitionAllocation(models.Model):
                         escape(rec.product_uom_id.name or ''),
                         escape(rec.product_id.display_name),
                         escape(rec.purchase_line_id.order_id.name or '') if rec.purchase_line_id else '',
-                        escape(move.reference or move.name or ''),
+                        escape(move.reference or getattr(move, 'name', '') or move.display_name or ''),
                         rec.delivered_qty,
                         rec.requested_qty
                     ),

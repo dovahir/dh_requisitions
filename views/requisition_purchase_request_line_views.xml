@@ -24,7 +24,6 @@
                             type="object"
                             icon="fa-times"
                             class="btn-danger"
-                            confirm="¿Está seguro de cancelar las solicitudes de compra seleccionadas?"
                             groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
                 </header>
                 <field name="priority" optional="show" nolabel="1"/>
@@ -38,9 +37,11 @@
                 <field name="product_uom_id" string="UdM" options="{'no_create': True}"/>
                 <field name="requester_name" string="Solicitante" optional="show"/>
                 <field name="requisition_id" string="Requisición" optional="show"/>
+                <field name="origin_supply_request_line_id" optional="hide"/>
                 <field name="supply_request_id" optional="show"/>
                 <field name="supply_request_line_id" optional="hide"/>
                 <field name="warehouse_id" string="Almacén Destino" optional="show"/>
+                <field name="cancel_reason" optional="hide"/>
                 <field name="company_id" groups="base.group_multi_company" optional="hide"/>
                 <field name="purchase_lines" column_invisible="1"/>
                 <button name="action_open_purchase_orders"
@@ -71,8 +72,7 @@
                         class="text-danger"
                         title="Cancelar partida"
                         invisible="state in ('cancel', 'purchased')"
-                        groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
-                        confirm="¿Está seguro de cancelar esta solicitud de compra?"/>
+                        groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
             </list>
         </field>
     </record>
@@ -103,8 +103,7 @@
                             type="object"
                             class="btn-secondary"
                             invisible="state in ('cancel', 'purchased')"
-                            groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"
-                            confirm="¿Está seguro de cancelar esta solicitud de compra?"/>
+                            groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="pending,in_progress,to_receive,partially_purchased,purchased"/>
                 </header>
@@ -126,6 +125,22 @@
                             <field name="picking_count" widget="statinfo" string="Recepciones"/>
                         </button>
                     </div>
+                    <div class="alert alert-danger py-2" role="alert" invisible="state != 'cancel'">
+                        <div class="d-flex align-items-center">
+                            <i class="fa fa-times-circle fs-4 me-2" title="Partida Cancelada"/>
+                            <div>
+                                <strong>Partida Cancelada</strong>
+                                <div invisible="not cancel_reason" class="mt-1">
+                                    <strong>Motivo: </strong><field name="cancel_reason" readonly="1" class="d-inline"/>
+                                </div>
+                                <div class="text-muted small mt-1">
+                                    <span invisible="not cancelled_by_id">Por: <field name="cancelled_by_id" readonly="1" class="d-inline"/> | </span>
+                                    <span invisible="not date_cancelled">Fecha: <field name="date_cancelled" readonly="1" class="d-inline"/></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="oe_title">
                         <label for="name" string="Referencia"/>
                         <h1>
@@ -144,6 +159,7 @@
                         <group string="Logística y Destino">
                             <field name="requester_name" readonly="1"/>
                             <field name="date_required" readonly="1"/>
+                            <field name="origin_supply_request_line_id" readonly="1" invisible="not origin_supply_request_line_id"/>
                             <field name="supply_request_id" readonly="1" invisible="not supply_request_id"/>
                             <field name="supply_request_line_id" readonly="1" invisible="not supply_request_line_id"/>
                             <field name="warehouse_id" readonly="1" options="{'no_open': True, 'no_create': True}"/>

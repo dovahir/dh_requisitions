@@ -158,6 +158,11 @@ class RequisitionSupplyRequest(models.Model):
     )
 
     # --- Destino ---
+    configured_warehouse_dest_ids = fields.Many2many(
+        'stock.warehouse',
+        compute='_compute_configured_warehouse_dest_ids',
+        string='Almacenes Destino Permitidos'
+    )
     warehouse_dest_id = fields.Many2one(
         'stock.warehouse',
         string='Almacén Destino (Obra)',
@@ -179,6 +184,16 @@ class RequisitionSupplyRequest(models.Model):
         string='Ubicación de Destino',
         check_company=True,
         tracking=True
+    )
+    has_validated_delivery = fields.Boolean(
+        string='Tiene Entrega Validada',
+        compute='_compute_delivery_flags',
+        help="Indica si existe al menos una entrega validada (despacho) desde almacén base."
+    )
+    has_pending_lines_for_destination = fields.Boolean(
+        string='Tiene Pendientes para Destino',
+        compute='_compute_has_pending_lines_for_destination',
+        help="Indica si existen partidas pendientes de envío para el almacén destino seleccionado."
     )
 
     requisition_ids = fields.Many2many(
@@ -260,20 +275,69 @@ class RequisitionSupplyRequest(models.Model):
 
     @api.onchange('warehouse_dest_id')
     def _onchange_warehouse_dest_id(self):
-        if self.warehouse_dest_id and not self.picking_type_dest_id:
-            picking_type = self.env['stock.picking.type'].search([
-                ('warehouse_id', '=', self.warehouse_dest_id.id),
-                ('code', '=', 'internal'),
-            ], limit=1)
-            if picking_type:
-                self.picking_type_dest_id = picking_type
-                self.location_dest_id = picking_type.default_location_dest_id
+        if self.warehouse_dest_id:
+            origin_type = False
+            if self.warehouse_origin_id:
+                origin_type = self.env['stock.picking.type'].search([
+                    ('warehouse_id', '=', self.warehouse_origin_id.id),
+                    ('code', '=', 'internal'),
+                    ('is_requisition_operation', '=', True),
+                    ('default_dest_picking_type.warehouse_id', '=', self.warehouse_dest_id.id),
+                ], limit=1)
+
+            if origin_type:
+                self.picking_type_id = origin_type
+                self.location_id = origin_type.default_location_src_id
+                self.picking_type_dest_id = origin_type.default_dest_picking_type
+                self.location_dest_id = origin_type.default_dest_picking_type.default_location_dest_id
             else:
-                self.location_dest_id = False
+                dest_type = self.env['stock.picking.type'].search([
+                    ('warehouse_id', '=', self.warehouse_dest_id.id),
+                    ('code', '=', 'internal'),
+                ], limit=1)
+                self.picking_type_dest_id = dest_type or False
+                self.location_dest_id = dest_type.default_location_dest_id if dest_type else False
+        else:
+            self.picking_type_dest_id = False
+            self.location_dest_id = False
 
     # -------------------------------------------------------------------------
     # COMPUTED FIELDS
     # -------------------------------------------------------------------------
+    @api.depends('warehouse_origin_id')
+    def _compute_configured_warehouse_dest_ids(self):
+        for rec in self:
+            if not rec.warehouse_origin_id:
+                rec.configured_warehouse_dest_ids = False
+                continue
+            picking_types = self.env['stock.picking.type'].search([
+                ('warehouse_id', '=', rec.warehouse_origin_id.id),
+                ('code', '=', 'internal'),
+                ('is_requisition_operation', '=', True),
+                ('default_dest_picking_type', '!=', False),
+            ])
+            rec.configured_warehouse_dest_ids = picking_types.mapped('default_dest_picking_type.warehouse_id')
+
+    @api.depends('picking_ids.state', 'picking_ids.location_id', 'location_id')
+    def _compute_delivery_flags(self):
+        for rec in self:
+            rec.has_validated_delivery = any(
+                p.state == 'done' and (not rec.location_id or p.location_id.id == rec.location_id.id)
+                for p in rec.picking_ids
+            )
+
+    def _compute_has_pending_lines_for_destination(self):
+        for rec in self:
+            if not rec.warehouse_dest_id:
+                rec.has_pending_lines_for_destination = False
+            else:
+                count = self.env['requisition.supply.request.line'].search_count([
+                    ('request_id', '=', False),
+                    ('warehouse_dest_id', '=', rec.warehouse_dest_id.id),
+                    ('state', 'not in', ('cancel', 'done')),
+                ])
+                rec.has_pending_lines_for_destination = (count > 0)
+
     @api.depends('line_ids')
     def _compute_lines_count(self):
         for rec in self:
@@ -300,6 +364,25 @@ class RequisitionSupplyRequest(models.Model):
         for vals in vals_list:
             if vals.get('name', _('Nuevo')) == _('Nuevo'):
                 vals['name'] = self.env['ir.sequence'].next_by_code('requisition.supply.request') or _('Nuevo')
+            # Autocompletar rutas logísticas basadas en el almacén destino configurado
+            wh_dest_id = vals.get('warehouse_dest_id')
+            wh_orig_id = vals.get('warehouse_origin_id') or self.env.company.requisition_default_warehouse_origin_id.id
+            if wh_dest_id and wh_orig_id and (not vals.get('picking_type_id') or not vals.get('picking_type_dest_id')):
+                origin_type = self.env['stock.picking.type'].search([
+                    ('warehouse_id', '=', wh_orig_id),
+                    ('code', '=', 'internal'),
+                    ('is_requisition_operation', '=', True),
+                    ('default_dest_picking_type.warehouse_id', '=', wh_dest_id),
+                ], limit=1)
+                if origin_type:
+                    if not vals.get('picking_type_id'):
+                        vals['picking_type_id'] = origin_type.id
+                    if not vals.get('location_id') and origin_type.default_location_src_id:
+                        vals['location_id'] = origin_type.default_location_src_id.id
+                    if not vals.get('picking_type_dest_id') and origin_type.default_dest_picking_type:
+                        vals['picking_type_dest_id'] = origin_type.default_dest_picking_type.id
+                    if not vals.get('location_dest_id') and origin_type.default_dest_picking_type and origin_type.default_dest_picking_type.default_location_dest_id:
+                        vals['location_dest_id'] = origin_type.default_dest_picking_type.default_location_dest_id.id
         records = super().create(vals_list)
         records.line_ids._compute_state()
         records.line_ids._compute_warehouses()
@@ -332,6 +415,8 @@ class RequisitionSupplyRequest(models.Model):
         self._check_supply_request_permissions()
         if self.state != 'draft':
             raise UserError(_("Solo se pueden incorporar partidas pendientes a solicitudes en estado Borrador."))
+        if not self.has_pending_lines_for_destination:
+            raise UserError(_("No hay partidas pendientes de envío disponibles para el almacén destino seleccionado (%s).") % (self.warehouse_dest_id.display_name or ''))
         return {
             'type': 'ir.actions.act_window',
             'name': _('Agregar desde Pendientes de Envío'),
@@ -439,12 +524,13 @@ class RequisitionSupplyRequest(models.Model):
         }
 
         for line in self.line_ids:
-            if line.product_qty <= 0:
+            send_qty = line.qty_to_send if hasattr(line, 'qty_to_send') and line.qty_to_send is not False else line.product_qty
+            if send_qty <= 0:
                 continue
             move_val = {
                 'description_picking': line.notes or line.product_id.display_name,
                 'product_id': line.product_id.id,
-                'product_uom_qty': line.product_qty,
+                'product_uom_qty': send_qty,
                 'product_uom': line.product_uom_id.id,
                 'location_id': self.location_id.id,
                 'location_dest_id': transit_location.id,
@@ -456,7 +542,7 @@ class RequisitionSupplyRequest(models.Model):
             delivery_vals['move_ids'].append((0, 0, move_val))
 
         if not delivery_vals['move_ids']:
-            raise UserError(_("No hay partidas con cantidad mayor a cero para generar el albarán."))
+            raise UserError(_("No hay partidas con cantidad a enviar mayor a cero para generar el albarán."))
 
         delivery_picking = self.env['stock.picking'].create(delivery_vals)
 
@@ -836,6 +922,8 @@ class RequisitionSupplyRequest(models.Model):
     def action_print_transfer_report(self):
         """Genera e imprime el reporte de traspaso / remisión de suministro."""
         self.ensure_one()
+        if not self.has_validated_delivery:
+            raise UserError(_("No se puede imprimir el reporte de traslado hasta que exista al menos una entrega validada."))
         return self.env.ref('dh_requisitions.action_report_supply_transfer').report_action(self)
 
     @api.ondelete(at_uninstall=False)

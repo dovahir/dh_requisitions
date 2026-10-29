@@ -160,13 +160,20 @@ class RequisitionPurchaseRequestLine(models.Model):
         readonly=True,
         index=True
     )
+    origin_supply_request_line_id = fields.Many2one(
+        'requisition.supply.request.line',
+        string='Partida de Suministro que Disparó la Compra',
+        readonly=True,
+        copy=False,
+        help="Partida de la solicitud de suministro de origen desde la cual se solicitó la compra por falta de existencias."
+    )
     supply_request_line_id = fields.Many2one(
         'requisition.supply.request.line',
-        string='Partida de Suministro Vinculada',
+        string='Partida de Suministro Vinculada (Envío)',
         compute='_compute_supply_request_line_id',
         store=True,
         readonly=True,
-        help='Partida de Solicitud de Suministro enlazada a través de la asignación unificada.'
+        help='Partida de Solicitud de Suministro enlazada a través de la asignación unificada para envío a obra.'
     )
     supply_request_id = fields.Many2one(
         'requisition.supply.request',
@@ -175,6 +182,26 @@ class RequisitionPurchaseRequestLine(models.Model):
         store=True,
         readonly=True,
         help='Folio de la Solicitud de Suministro vinculada.'
+    )
+    cancel_reason = fields.Text(
+        string='Motivo de Cancelación',
+        readonly=True,
+        copy=False,
+        tracking=True,
+        help="Justificación de la cancelación de esta partida de compra."
+    )
+    cancelled_by_id = fields.Many2one(
+        'res.users',
+        string='Cancelado por',
+        readonly=True,
+        copy=False,
+        help="Usuario que realizó la cancelación de esta partida."
+    )
+    date_cancelled = fields.Datetime(
+        string='Fecha de Cancelación',
+        readonly=True,
+        copy=False,
+        help="Fecha y hora en que se canceló la partida."
     )
 
     # Relaciones con Órdenes y Líneas de Compra
@@ -327,34 +354,47 @@ class RequisitionPurchaseRequestLine(models.Model):
                 rec.purchase_state = states[0] if states else False
 
     @api.depends(
-        'allocation_ids.requested_qty',
-        'allocation_ids.delivered_qty',
-        'allocation_ids.open_qty',
-        'allocation_ids.cancelled_qty',
-        'allocation_ids.state',
-        'allocation_ids.purchase_line_id.order_id.state',
+        'purchase_lines.qty_received',
+        'purchase_lines.product_qty',
+        'purchase_lines.state',
+        'purchase_lines.order_id.state',
         'product_qty',
         'qty_cancelled'
     )
     def _compute_quantities(self):
         for rec in self:
-            active_allocs = rec.allocation_ids.filtered(lambda a: a.state != 'cancel')
+            active_po_lines = rec.purchase_lines.filtered(
+                lambda l: l.state != 'cancel' and l.order_id.state not in ('cancel',)
+            )
 
-            # 1. Cantidad recibida/surtida físicamente
-            rec.qty_done = sum(active_allocs.mapped('delivered_qty'))
+            def _po_line_qty(po_line, qty):
+                po_uom = getattr(po_line, 'product_uom_id', False) or getattr(po_line, 'product_uom', False)
+                if po_uom and rec.product_uom_id and po_uom != rec.product_uom_id:
+                    return po_uom._compute_quantity(qty, rec.product_uom_id)
+                return qty
+
+            # 1. Cantidad recibida físicamente ÚNICAMENTE desde recepciones reales de órdenes de compra
+            rec.qty_done = sum(
+                _po_line_qty(l, l.qty_received)
+                for l in active_po_lines
+            )
 
             # 2. Cantidad en órdenes confirmadas pendiente de recepción
-            confirmed_allocs = active_allocs.filtered(
-                lambda a: a.purchase_line_id and a.purchase_line_id.order_id.state in ('purchase', 'done')
+            confirmed_po_lines = active_po_lines.filtered(
+                lambda l: l.order_id.state in ('purchase', 'done')
             )
-            rec.qty_to_receive = sum(confirmed_allocs.mapped('open_qty'))
+            rec.qty_to_receive = sum(
+                _po_line_qty(l, max(0.0, l.product_qty - l.qty_received))
+                for l in confirmed_po_lines
+            )
 
-            # 3. Cantidad en cotización / RFQ abierta
-            rfq_allocs = active_allocs.filtered(
-                lambda a: a.purchase_line_id and a.purchase_line_id.order_id.state in ('draft', 'sent', 'to approve')
+            # 3. Cantidad en cotización / RFQ abierta (draft, sent, to approve)
+            rfq_lines = active_po_lines.filtered(
+                lambda l: l.order_id.state in ('draft', 'sent', 'to approve')
             )
             rec.qty_in_progress = sum(
-                max(0.0, a.requested_qty - a.delivered_qty) for a in rfq_allocs
+                _po_line_qty(l, l.product_qty)
+                for l in rfq_lines
             )
 
             # 4. Cantidad pendiente de comprar
@@ -544,62 +584,88 @@ class RequisitionPurchaseRequestLine(models.Model):
         if self.state in ('cancel', 'purchased'):
             raise UserError(_("No se puede cancelar una línea en estado '%s'.") % dict(_LINE_STATES).get(self.state, self.state))
 
+        if not reason:
+            return {
+                'type': 'ir.actions.act_window',
+                'name': _('Cancelar Partida de Compra'),
+                'res_model': 'requisition.purchase.request.cancel.wizard',
+                'view_mode': 'form',
+                'target': 'new',
+                'context': {
+                    'default_purchase_request_line_ids': [self.id],
+                    'default_cancel_action': cancel_action,
+                },
+            }
+
         pending_balance = self.pending_qty_to_buy
         if pending_balance > 0:
             self.qty_cancelled += pending_balance
+
+        # Capturar las líneas y órdenes de compra vinculadas ANTES de cancelar las asignaciones
+        po_lines = (self.purchase_lines | self.allocation_ids.mapped('purchase_line_id')).filtered(bool)
+        if not po_lines:
+            allocs = self.env['requisition.allocation'].search([('purchase_request_line_id', '=', self.id)])
+            po_lines = allocs.mapped('purchase_line_id').filtered(bool)
 
         active_allocs = self.allocation_ids.filtered(lambda a: a.state != 'cancel')
         if active_allocs:
             for alloc in active_allocs:
                 alloc.action_cancel_allocation(
                     cancel_action=cancel_action,
-                    reason=reason or _("Cancelación desde Solicitud de Compra")
+                    reason=reason
                 )
 
-        self.state = 'cancel'
-        msg = Markup(_("<strong>Solicitud de Compra Cancelada:</strong> Tratamiento de cantidad: %s.")) % (
-            _("Reintegrado a requisición") if cancel_action == 'reintegrate' else _("Cerrado definitivamente")
+        # Cancelar o desvincular líneas de RFQ / Orden de compra asociadas
+        for po_line in po_lines:
+            po = po_line.order_id
+            if po.state in ('draft', 'sent', 'to approve'):
+                other_lines = po.order_line - po_line
+                if not other_lines:
+                    po.with_context(
+                        cancel_reason=reason,
+                        cancelled_by_id=self.env.user.id
+                    ).button_cancel()
+                    po.message_post(
+                        body=Markup(_("Orden de Compra / RFQ cancelada al cancelarse la partida de compra <strong>%s</strong>.<br/><strong>Motivo:</strong> %s")) % (
+                            escape(self.display_name),
+                            escape(reason)
+                        )
+                    )
+                else:
+                    po_line.unlink()
+                    po.message_post(
+                        body=Markup(_("Partida <strong>%s</strong> retirada de la orden al cancelarse su solicitud de compra vinculada.<br/><strong>Motivo:</strong> %s")) % (
+                            escape(self.product_id.display_name),
+                            escape(reason)
+                        )
+                    )
+
+        self.write({
+            'state': 'cancel',
+            'cancel_reason': reason,
+            'cancelled_by_id': self.env.user.id,
+            'date_cancelled': fields.Datetime.now(),
+        })
+
+        msg = Markup(_("<strong>Solicitud de Compra Cancelada:</strong> Tratamiento de cantidad: %s.<br/><strong>Motivo:</strong> %s")) % (
+            _("Reintegrado a requisición") if cancel_action == 'reintegrate' else _("Cerrado definitivamente"),
+            escape(reason)
         )
         self.message_post(body=msg, subtype_xmlid="mail.mt_note")
         return True
 
     def action_cancel_multiple(self):
-        """Acción de cabecera para cancelar múltiples líneas seleccionadas en lote."""
+        """Abre el asistente para cancelar múltiples partidas de compra con motivo obligatorio."""
         self._check_purchase_manager_permissions()
         if not self:
             raise UserError(_("No hay líneas seleccionadas."))
-
-        cancelled_count = 0
-        errors = []
-        for line in self:
-            try:
-                line.action_cancel_line(cancel_action='reintegrate')
-                cancelled_count += 1
-            except UserError as e:
-                errors.append(f"{line.display_name}: {str(e)}")
-
-        if errors:
-            err_text = "\n".join(errors)
-            if cancelled_count == 0:
-                raise UserError(_("No se pudo cancelar ninguna línea:\n\n%s") % err_text)
-            return {
-                'type': 'ir.actions.client',
-                'tag': 'display_notification',
-                'params': {
-                    'title': _("Cancelación Parcial"),
-                    'message': _("Se cancelaron %d líneas. Ocurrieron advertencias:\n%s") % (cancelled_count, err_text),
-                    'type': 'warning',
-                    'sticky': True,
-                }
-            }
-
         return {
-            'type': 'ir.actions.client',
-            'tag': 'display_notification',
-            'params': {
-                'title': _("Cancelación Exitosa"),
-                'message': _("Se cancelaron correctamente %d partida(s) de compra.") % cancelled_count,
-                'type': 'success',
-                'sticky': False,
-            }
+            'type': 'ir.actions.act_window',
+            'name': _('Cancelar Partidas de Compra'),
+            'res_model': 'requisition.purchase.request.cancel.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_purchase_request_line_ids': self.ids,
+            },
         }

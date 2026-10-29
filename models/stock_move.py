@@ -108,7 +108,7 @@ class StockMove(models.Model):
                     if alloc.state != 'cancel':
                         alloc.action_cancel_allocation(
                             cancel_action='reintegrate',
-                            reason=_("Cancelación automática del movimiento de almacén %s") % (move.reference or move.name)
+                            reason=_("Cancelación automática del movimiento de almacén %s") % (move.reference or getattr(move, 'name', '') or move.display_name)
                         )
         return res
 

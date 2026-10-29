@@ -5,14 +5,6 @@
         <menuitem id="menu_requisitions_root"
                   name="Requisiciones"
                   web_icon="dh_requisitions,static/description/icon.png"/>
-                  
-        <menuitem id="menu_requisitions_dashboard"
-                  name="Tablero"
-                  parent="menu_requisitions_root"
-                  action="action_requisitions_dashboard"
-                  groups="dh_requisitions.group_requisitions_requester"
-                  sequence="5"/>
-
         <menuitem id="menu_requisitions_main"
                   name="Requisiciones"
                   parent="menu_requisitions_root"

@@ -14,7 +14,7 @@
                         type="object"
                         class="btn-secondary"
                         icon="fa-print"
-                        invisible="not supply_request_id"/>
+                        invisible="not supply_request_id or state != 'done'"/>
             </xpath>
             <xpath expr="//div[@name='button_box']" position="inside">
                 <field name="supply_request_id" invisible="1"/>

@@ -70,7 +70,10 @@ class RequisitionSupplyRequestLineSplitWizard(models.TransientModel):
         pending_qty = self.total_qty - self.qty_to_send
 
         # 1. Ajustar la línea actual con la cantidad que sí se enviará
-        orig_line.product_qty = self.qty_to_send
+        orig_line.write({
+            'product_qty': self.qty_to_send,
+            'qty_to_send': self.qty_to_send,
+        })
         for alloc in orig_line.allocation_ids.filtered(lambda a: a.state != 'cancel'):
             alloc.requested_qty = self.qty_to_send
             alloc._sync_origin_document_status()
@@ -81,6 +84,7 @@ class RequisitionSupplyRequestLineSplitWizard(models.TransientModel):
             'requisition_line_id': orig_line.requisition_line_id.id if orig_line.requisition_line_id else False,
             'product_id': orig_line.product_id.id,
             'product_qty': pending_qty,
+            'qty_to_send': pending_qty,
             'notes': orig_line.notes,
             'is_manual': orig_line.is_manual,
             'warehouse_dest_id': orig_line.warehouse_dest_id.id if orig_line.warehouse_dest_id else False,

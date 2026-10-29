@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <record id="view_requisition_supply_trigger_purchase_wizard_form" model="ir.ui.view">
+        <field name="name">requisition.supply.trigger.purchase.wizard.form</field>
+        <field name="model">requisition.supply.trigger.purchase.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Solicitar Compra desde Suministro">
+                <sheet>
+                    <div class="alert alert-info py-2" role="alert">
+                        <i class="fa fa-info-circle me-1"/>
+                        Configure la cantidad a solicitar al departamento de compras.
+                        Opcionalmente puede generar una partida en <strong>Pendientes de Envío</strong> para trasladar el material a la obra una vez recibido en almacén base.
+                    </div>
+                    <group>
+                        <group string="Detalles de la Partida">
+                            <field name="supply_line_id" invisible="1"/>
+                            <field name="product_id" options="{'no_open': True}"/>
+                            <field name="product_uom_id" options="{'no_open': True}"/>
+                            <field name="product_qty"/>
+                            <field name="qty_base_available" decoration-danger="qty_base_available &lt; product_qty" decoration-success="qty_base_available &gt;= product_qty"/>
+                        </group>
+                        <group string="Parámetros de Compra y Traslado">
+                            <field name="qty_to_send"/>
+                            <field name="qty_to_purchase" decoration-bf="1"/>
+                            <field name="create_pending_supply" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes" placeholder="Indique la justificación o notas para el departamento de compras..."/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" string="Crear Solicitud de Compra" type="object" class="btn-primary" icon="fa-shopping-cart"/>
+                    <button string="Descartar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>
