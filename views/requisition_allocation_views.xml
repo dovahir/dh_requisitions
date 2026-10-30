@@ -46,7 +46,7 @@
         <field name="arch" type="xml">
             <form string="Asignación de Suministro">
                 <header>
-                    <button name="action_open_cancel_wizard" string="Cancelar / Cerrar Cantidad" type="object" class="btn-danger" invisible="state in ('done', 'cancel')"/>
+                    <button name="action_open_cancel_wizard" string="Cancelar / Cerrar Cantidad" type="object" class="btn-secondary" invisible="state in ('done', 'cancel')"/>
                     <field name="state" widget="statusbar" statusbar_visible="draft,in_progress,done"/>
                 </header>
                 <sheet>

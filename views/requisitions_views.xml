@@ -67,8 +67,12 @@
                             invisible="state not in ('approved', 'in_progress', 'partially_done')"
                             groups="purchase.group_purchase_user,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_create_service_rfq" string="Crear RFQ de Servicios" type="object"
+                            class="btn-primary"
+                            invisible="state not in ('approved', 'in_progress') or not has_services or has_deliverable_products"
+                            groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
+                    <button name="action_create_service_rfq" string="Crear RFQ de Servicios" type="object"
                             class="btn-secondary"
-                            invisible="state not in ('approved', 'in_progress') or not has_services"
+                            invisible="state not in ('approved', 'in_progress') or not has_services or not has_deliverable_products"
                             groups="purchase.group_purchase_manager,dh_requisitions.group_requisitions_manager"/>
                     <button name="action_draft" string="Regresar a Borrador" type="object"
                             class="btn-secondary"
